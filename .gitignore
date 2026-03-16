@@ -3,3 +3,6 @@ node_modules/
 .env.local
 *.tar.gz
 .DS_Store
+*_research.md
+*_resaearch.md
+research/
