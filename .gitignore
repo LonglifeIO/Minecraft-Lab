@@ -1,0 +1,5 @@
+node_modules/
+.next/
+.env.local
+*.tar.gz
+.DS_Store
