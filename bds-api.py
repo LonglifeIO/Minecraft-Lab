@@ -4,12 +4,17 @@ Runs in each BDS container alongside the game server.
 """
 
 from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
+import fcntl
 import json
 import subprocess
 import os
 import time
 import re
 import shutil
+import tempfile
+import urllib.parse
+import urllib.request
+import zipfile
 from datetime import datetime
 from pathlib import Path
 
@@ -20,6 +25,11 @@ LOG_FILE = os.path.join(BDS_PATH, "logs", "server.log")
 BACKUP_DIR = os.path.join(BDS_PATH, "backups")
 PORT = int(os.environ.get("API_PORT", "8080"))
 MC_USER = "minecraft"
+BEHAVIOR_PACKS_DIR = os.path.join(BDS_PATH, "behavior_packs")
+RESOURCE_PACKS_DIR = os.path.join(BDS_PATH, "resource_packs")
+WORLDS_DIR = os.path.join(BDS_PATH, "worlds")
+VALID_KNOWN_PACKS_FILE = os.path.join(BDS_PATH, "valid_known_packs.json")
+INSTALLED_ADDONS_FILE = os.path.join(BDS_PATH, "installed_addons.json")
 
 os.makedirs(os.path.join(BDS_PATH, "logs"), exist_ok=True)
 os.makedirs(BACKUP_DIR, exist_ok=True)
@@ -197,6 +207,497 @@ def list_backups():
     return backups
 
 
+def default_json_value(default):
+    return json.loads(json.dumps(default))
+
+
+def chown_recursive(path):
+    run(f'chown -R {MC_USER}:{MC_USER} "{path}"')
+
+
+def atomic_write_json(path, data):
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    fd, temp_path = tempfile.mkstemp(
+        dir=os.path.dirname(path),
+        prefix=f".{os.path.basename(path)}.",
+        suffix=".tmp",
+    )
+    try:
+        with os.fdopen(fd, "w") as f:
+            json.dump(data, f, indent=4)
+            f.write("\n")
+        os.replace(temp_path, path)
+        run(f'chown {MC_USER}:{MC_USER} "{path}"')
+    finally:
+        if os.path.exists(temp_path):
+            os.remove(temp_path)
+
+
+def read_json_file(path, default, create=False):
+    if not os.path.exists(path):
+        data = default_json_value(default)
+        if create:
+            atomic_write_json(path, data)
+        return data
+    try:
+        with open(path, "r") as f:
+            return json.load(f)
+    except:
+        return default_json_value(default)
+
+
+def update_json_file(path, default, update_fn):
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    lock_path = f"{path}.lock"
+    with open(lock_path, "w") as lock:
+        fcntl.flock(lock.fileno(), fcntl.LOCK_EX)
+        data = read_json_file(path, default, create=True)
+        if not isinstance(data, type(default)):
+            data = default_json_value(default)
+        result = update_fn(data)
+        atomic_write_json(path, data)
+        fcntl.flock(lock.fileno(), fcntl.LOCK_UN)
+        return result
+
+
+def sanitize_folder_name(name, fallback):
+    cleaned = re.sub(r"[^A-Za-z0-9._-]+", "_", name or "").strip("._")
+    return cleaned or fallback
+
+
+def validate_world_name(world_name):
+    if not world_name or "/" in world_name or "\\" in world_name or world_name in (".", ".."):
+        raise ValueError("invalid world name")
+    world_dir = os.path.join(WORLDS_DIR, world_name)
+    if not os.path.isdir(world_dir):
+        raise FileNotFoundError(f"world not found: {world_name}")
+    return world_dir
+
+
+def get_world_packs_file(world_name, pack_type):
+    world_dir = validate_world_name(world_name)
+    if pack_type == "behavior":
+        return os.path.join(world_dir, "world_behavior_packs.json")
+    return os.path.join(world_dir, "world_resource_packs.json")
+
+
+def read_world_packs(world_name, pack_type, create=False):
+    path = get_world_packs_file(world_name, pack_type)
+    data = read_json_file(path, [], create=create)
+    if isinstance(data, list):
+        return data
+    return []
+
+
+def update_world_packs(world_name, pack_type, update_fn):
+    path = get_world_packs_file(world_name, pack_type)
+    return update_json_file(path, [], update_fn)
+
+
+def version_to_string(version):
+    if isinstance(version, list):
+        return ".".join(str(v) for v in version)
+    return str(version or "")
+
+
+def normalize_dependencies(dependencies):
+    result = []
+    for dep in dependencies or []:
+        if isinstance(dep, dict) and dep.get("uuid"):
+            result.append({
+                "uuid": dep.get("uuid"),
+                "version": dep.get("version", []),
+            })
+    return result
+
+
+def parse_manifest(manifest_path):
+    with open(manifest_path, "r") as f:
+        manifest = json.load(f)
+
+    header = manifest.get("header", {})
+    modules = manifest.get("modules") or []
+    module_type = ""
+    for module in modules:
+        if module.get("type") in ("data", "resources", "script"):
+            module_type = module.get("type")
+            break
+    if not module_type and modules:
+        module_type = modules[0].get("type", "")
+
+    return {
+        "uuid": header.get("uuid"),
+        "name": header.get("name", ""),
+        "description": header.get("description", ""),
+        "version": header.get("version", []),
+        "type": module_type,
+        "dependencies": normalize_dependencies(manifest.get("dependencies", [])),
+        "manifest": manifest,
+    }
+
+
+def build_addon_info(pack_dir, pack_type, installed_by_uuid):
+    manifest_path = os.path.join(pack_dir, "manifest.json")
+    if not os.path.isfile(manifest_path):
+        return None
+
+    parsed = parse_manifest(manifest_path)
+    if not parsed.get("uuid"):
+        return None
+
+    installed = installed_by_uuid.get(parsed["uuid"])
+    curseforge = None
+    if installed and installed.get("modId") is not None and installed.get("fileId") is not None:
+        curseforge = {
+            "modId": installed.get("modId"),
+            "fileId": installed.get("fileId"),
+        }
+
+    base_name = os.path.basename(os.path.dirname(pack_dir))
+    return {
+        "uuid": parsed["uuid"],
+        "name": parsed["name"],
+        "description": parsed["description"],
+        "version": parsed["version"],
+        "type": parsed["type"],
+        "packType": pack_type,
+        "path": f"{base_name}/{os.path.basename(pack_dir)}",
+        "dependencies": parsed["dependencies"],
+        "curseforge": curseforge,
+    }
+
+
+def read_installed_addons_metadata():
+    data = read_json_file(INSTALLED_ADDONS_FILE, [], create=True)
+    if isinstance(data, list):
+        return data
+    return []
+
+
+def list_installed_addons():
+    installed_by_uuid = {}
+    for item in read_installed_addons_metadata():
+        uuid = item.get("uuid")
+        if uuid:
+            installed_by_uuid[uuid] = item
+
+    addons = []
+    for pack_type, base_dir in (("behavior", BEHAVIOR_PACKS_DIR), ("resource", RESOURCE_PACKS_DIR)):
+        if not os.path.isdir(base_dir):
+            continue
+        for entry in sorted(os.scandir(base_dir), key=lambda e: e.name):
+            if not entry.is_dir():
+                continue
+            try:
+                addon = build_addon_info(entry.path, pack_type, installed_by_uuid)
+            except:
+                addon = None
+            if addon:
+                addons.append(addon)
+    return addons
+
+
+def list_world_addons(world_name):
+    addons_by_uuid = {addon["uuid"]: addon for addon in list_installed_addons()}
+    result = []
+    seen = set()
+
+    for pack_type in ("behavior", "resource"):
+        for entry in read_world_packs(world_name, pack_type, create=True):
+            pack_uuid = entry.get("pack_id")
+            if not pack_uuid or pack_uuid in seen:
+                continue
+            addon = addons_by_uuid.get(pack_uuid, {
+                "uuid": pack_uuid,
+                "name": "",
+                "description": "",
+                "version": entry.get("version", []),
+                "type": "",
+                "packType": pack_type,
+                "path": "",
+                "dependencies": [],
+                "curseforge": None,
+            }).copy()
+            addon["enabled"] = True
+            result.append(addon)
+            seen.add(pack_uuid)
+
+    return result
+
+
+def safe_extract_zip(zip_file, dest_dir):
+    root = os.path.realpath(dest_dir)
+    for member in zip_file.infolist():
+        member_path = os.path.realpath(os.path.join(dest_dir, member.filename))
+        if not member_path.startswith(root + os.sep) and member_path != root:
+            raise ValueError("invalid archive path")
+    zip_file.extractall(dest_dir)
+
+
+def archive_has_manifest(zip_file):
+    for name in zip_file.namelist():
+        clean = name.strip("/")
+        if not clean or clean.endswith("/"):
+            continue
+        parts = [part for part in clean.split("/") if part]
+        if parts and parts[-1] == "manifest.json" and len(parts) <= 2:
+            return True
+    return False
+
+
+def extract_pack_archives(archive_path, temp_dir):
+    pack_archives = []
+    try:
+        with zipfile.ZipFile(archive_path, "r") as zip_file:
+            names = zip_file.namelist()
+            has_inner_packs = any(name.lower().endswith(".mcpack") for name in names)
+            if has_inner_packs:
+                for name in names:
+                    if not name.lower().endswith(".mcpack"):
+                        continue
+                    target = os.path.join(temp_dir, os.path.basename(name))
+                    with zip_file.open(name) as src, open(target, "wb") as dst:
+                        shutil.copyfileobj(src, dst)
+                    pack_archives.append(target)
+            elif archive_has_manifest(zip_file):
+                pack_archives.append(archive_path)
+            else:
+                raise ValueError("unsupported addon archive format")
+    except zipfile.BadZipFile:
+        raise ValueError("invalid zip archive")
+
+    if not pack_archives:
+        raise ValueError("no packs found in archive")
+    return pack_archives
+
+
+def find_manifest_path(root_dir):
+    direct = os.path.join(root_dir, "manifest.json")
+    if os.path.isfile(direct):
+        return direct
+
+    for entry in os.scandir(root_dir):
+        if not entry.is_dir():
+            continue
+        manifest_path = os.path.join(entry.path, "manifest.json")
+        if os.path.isfile(manifest_path):
+            return manifest_path
+
+    return None
+
+
+def resolve_pack_destination(pack_name, pack_uuid, pack_type):
+    if pack_type in ("data", "script"):
+        base_dir = BEHAVIOR_PACKS_DIR
+        storage_type = "behavior"
+    elif pack_type == "resources":
+        base_dir = RESOURCE_PACKS_DIR
+        storage_type = "resource"
+    else:
+        raise ValueError(f"unsupported pack type: {pack_type}")
+
+    os.makedirs(base_dir, exist_ok=True)
+    folder_name = sanitize_folder_name(pack_name, f"pack_{pack_uuid[:8]}")
+    dest_path = os.path.join(base_dir, folder_name)
+
+    if os.path.exists(dest_path):
+        manifest_path = os.path.join(dest_path, "manifest.json")
+        existing_uuid = None
+        if os.path.isfile(manifest_path):
+            try:
+                existing_uuid = parse_manifest(manifest_path).get("uuid")
+            except:
+                existing_uuid = None
+        if existing_uuid == pack_uuid:
+            shutil.rmtree(dest_path)
+        else:
+            folder_name = f"{folder_name}_{pack_uuid[:8]}"
+            dest_path = os.path.join(base_dir, folder_name)
+            if os.path.exists(dest_path):
+                manifest_path = os.path.join(dest_path, "manifest.json")
+                existing_uuid = None
+                if os.path.isfile(manifest_path):
+                    try:
+                        existing_uuid = parse_manifest(manifest_path).get("uuid")
+                    except:
+                        existing_uuid = None
+                if existing_uuid == pack_uuid:
+                    shutil.rmtree(dest_path)
+                else:
+                    raise ValueError(f"destination already exists: {dest_path}")
+
+    return storage_type, folder_name, dest_path
+
+
+def upsert_valid_known_pack(relative_path, pack_uuid, version):
+    version_str = version_to_string(version)
+
+    def update(data):
+        data[:] = [
+            item for item in data
+            if item.get("uuid") != pack_uuid and item.get("path") != relative_path
+        ]
+        data.append({
+            "file_system": "RawPath",
+            "path": relative_path,
+            "uuid": pack_uuid,
+            "version": version_str,
+        })
+
+    update_json_file(VALID_KNOWN_PACKS_FILE, [], update)
+
+
+def remove_valid_known_pack(relative_path, pack_uuid):
+    def update(data):
+        data[:] = [
+            item for item in data
+            if item.get("uuid") != pack_uuid and item.get("path") != relative_path
+        ]
+
+    update_json_file(VALID_KNOWN_PACKS_FILE, [], update)
+
+
+def set_world_pack_enabled(world_name, pack_type, pack_uuid, version, enabled):
+    def update(data):
+        existing = [item for item in data if item.get("pack_id") == pack_uuid]
+        if enabled:
+            if not existing:
+                data.append({"pack_id": pack_uuid, "version": version})
+        else:
+            data[:] = [item for item in data if item.get("pack_id") != pack_uuid]
+
+    update_world_packs(world_name, pack_type, update)
+
+
+def record_installed_addon(pack_uuid, mod_id, file_id, name):
+    def update(data):
+        data[:] = [item for item in data if item.get("uuid") != pack_uuid]
+        data.append({
+            "uuid": pack_uuid,
+            "modId": mod_id,
+            "fileId": file_id,
+            "name": name,
+            "installedAt": datetime.now().isoformat(),
+        })
+
+    update_json_file(INSTALLED_ADDONS_FILE, [], update)
+
+
+def remove_installed_addon(pack_uuid):
+    def update(data):
+        data[:] = [item for item in data if item.get("uuid") != pack_uuid]
+
+    update_json_file(INSTALLED_ADDONS_FILE, [], update)
+
+
+def install_pack_archive(archive_path, world_name, mod_id, file_id, addon_name):
+    with tempfile.TemporaryDirectory() as extract_dir:
+        try:
+            with zipfile.ZipFile(archive_path, "r") as zip_file:
+                safe_extract_zip(zip_file, extract_dir)
+        except zipfile.BadZipFile:
+            raise ValueError("invalid pack archive")
+
+        manifest_path = find_manifest_path(extract_dir)
+        if not manifest_path:
+            raise ValueError("manifest.json not found in pack")
+
+        parsed = parse_manifest(manifest_path)
+        pack_uuid = parsed.get("uuid")
+        if not pack_uuid:
+            raise ValueError("manifest missing uuid")
+
+        existing = find_addon_by_uuid(pack_uuid)
+        if existing:
+            existing_path = os.path.join(BDS_PATH, existing["path"])
+            if os.path.isdir(existing_path):
+                shutil.rmtree(existing_path)
+
+        storage_type, folder_name, dest_path = resolve_pack_destination(
+            parsed.get("name") or addon_name,
+            pack_uuid,
+            parsed.get("type"),
+        )
+
+        source_dir = os.path.dirname(manifest_path)
+        shutil.copytree(source_dir, dest_path)
+        chown_recursive(dest_path)
+
+        relative_path = f"{storage_type}_packs/{folder_name}"
+        upsert_valid_known_pack(relative_path, pack_uuid, parsed.get("version", []))
+        set_world_pack_enabled(world_name, storage_type, pack_uuid, parsed.get("version", []), True)
+        record_installed_addon(
+            pack_uuid,
+            mod_id,
+            file_id,
+            addon_name or parsed.get("name", ""),
+        )
+
+        addon = build_addon_info(dest_path, storage_type, {
+            pack_uuid: {
+                "uuid": pack_uuid,
+                "modId": mod_id,
+                "fileId": file_id,
+            }
+        })
+        if not addon:
+            raise ValueError("failed to build installed pack info")
+        return addon
+
+
+def install_addon(url, world_name, mod_id, file_id, addon_name):
+    validate_world_name(world_name)
+
+    with tempfile.TemporaryDirectory() as temp_dir:
+        archive_path = os.path.join(temp_dir, "addon.zip")
+        request = urllib.request.Request(url, headers={"User-Agent": "bds-api"})
+
+        try:
+            with urllib.request.urlopen(request, timeout=60) as response, open(archive_path, "wb") as f:
+                shutil.copyfileobj(response, f)
+        except Exception as e:
+            raise ValueError(f"download failed: {e}")
+
+        pack_archives = extract_pack_archives(archive_path, temp_dir)
+        installed = []
+        for pack_archive in pack_archives:
+            installed.append(install_pack_archive(pack_archive, world_name, mod_id, file_id, addon_name))
+        return installed
+
+
+def find_addon_by_uuid(pack_uuid):
+    for addon in list_installed_addons():
+        if addon.get("uuid") == pack_uuid:
+            return addon
+    return None
+
+
+def remove_addon(pack_uuid, world_name):
+    validate_world_name(world_name)
+    addon = find_addon_by_uuid(pack_uuid)
+    if not addon:
+        raise FileNotFoundError(f"addon not found: {pack_uuid}")
+
+    full_path = os.path.join(BDS_PATH, addon["path"])
+    if os.path.isdir(full_path):
+        shutil.rmtree(full_path)
+
+    remove_valid_known_pack(addon["path"], pack_uuid)
+    set_world_pack_enabled(world_name, addon["packType"], pack_uuid, addon.get("version", []), False)
+    remove_installed_addon(pack_uuid)
+    return addon
+
+
+def toggle_addon(pack_uuid, world_name, enabled):
+    validate_world_name(world_name)
+    addon = find_addon_by_uuid(pack_uuid)
+    if not addon:
+        raise FileNotFoundError(f"addon not found: {pack_uuid}")
+
+    set_world_pack_enabled(world_name, addon["packType"], pack_uuid, addon.get("version", []), enabled)
+    return addon
+
+
 PRESETS = {
     "kid_friendly": [
         "difficulty peaceful",
@@ -268,7 +769,8 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         if not self._auth():
             return
-        p = self.path.rstrip("/")
+        parsed = urllib.parse.urlparse(self.path)
+        p = parsed.path.rstrip("/") or "/"
         if p == "/status":
             self._json(200, get_status())
         elif p == "/allowlist":
@@ -277,13 +779,28 @@ class Handler(BaseHTTPRequestHandler):
             self._json(200, read_properties())
         elif p == "/backups":
             self._json(200, list_backups())
+        elif p == "/addons":
+            self._json(200, list_installed_addons())
+        elif p == "/addons/world":
+            params = urllib.parse.parse_qs(parsed.query)
+            world_name = (params.get("name") or [""])[0].strip()
+            if not world_name:
+                self._json(400, {"error": "missing name"})
+                return
+            try:
+                self._json(200, list_world_addons(world_name))
+            except FileNotFoundError as e:
+                self._json(404, {"error": str(e)})
+            except ValueError as e:
+                self._json(400, {"error": str(e)})
         else:
             self._json(404, {"error": "not found"})
 
     def do_POST(self):
         if not self._auth():
             return
-        p = self.path.rstrip("/")
+        parsed = urllib.parse.urlparse(self.path)
+        p = parsed.path.rstrip("/") or "/"
         body = self._body()
 
         if p == "/command":
@@ -371,6 +888,73 @@ class Handler(BaseHTTPRequestHandler):
         elif p == "/backup":
             result = do_backup()
             self._json(200 if result.get("success") else 500, result)
+
+        elif p == "/addons/install":
+            url = str(body.get("url") or "").strip()
+            world_name = str(body.get("worldName") or "").strip()
+            if not url:
+                self._json(400, {"error": "missing url"})
+                return
+            if not world_name:
+                self._json(400, {"error": "missing worldName"})
+                return
+            try:
+                packs = install_addon(
+                    url,
+                    world_name,
+                    body.get("modId"),
+                    body.get("fileId"),
+                    str(body.get("addonName") or "").strip(),
+                )
+                self._json(200, {"success": True, "packs": packs, "restartRequired": True})
+            except FileNotFoundError as e:
+                self._json(404, {"error": str(e)})
+            except ValueError as e:
+                self._json(400, {"error": str(e)})
+            except Exception as e:
+                self._json(500, {"error": str(e)})
+
+        elif p == "/addons/remove":
+            pack_uuid = str(body.get("uuid") or "").strip()
+            world_name = str(body.get("worldName") or "").strip()
+            if not pack_uuid:
+                self._json(400, {"error": "missing uuid"})
+                return
+            if not world_name:
+                self._json(400, {"error": "missing worldName"})
+                return
+            try:
+                remove_addon(pack_uuid, world_name)
+                self._json(200, {"success": True, "restartRequired": True})
+            except FileNotFoundError as e:
+                self._json(404, {"error": str(e)})
+            except ValueError as e:
+                self._json(400, {"error": str(e)})
+            except Exception as e:
+                self._json(500, {"error": str(e)})
+
+        elif p == "/addons/toggle":
+            pack_uuid = str(body.get("uuid") or "").strip()
+            world_name = str(body.get("worldName") or "").strip()
+            enabled = body.get("enabled")
+            if not pack_uuid:
+                self._json(400, {"error": "missing uuid"})
+                return
+            if not world_name:
+                self._json(400, {"error": "missing worldName"})
+                return
+            if not isinstance(enabled, bool):
+                self._json(400, {"error": "enabled must be true or false"})
+                return
+            try:
+                toggle_addon(pack_uuid, world_name, enabled)
+                self._json(200, {"success": True, "restartRequired": True})
+            except FileNotFoundError as e:
+                self._json(404, {"error": str(e)})
+            except ValueError as e:
+                self._json(400, {"error": str(e)})
+            except Exception as e:
+                self._json(500, {"error": str(e)})
 
         else:
             self._json(404, {"error": "not found"})
