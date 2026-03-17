@@ -6,3 +6,7 @@ node_modules/
 *_research.md
 *_resaearch.md
 research/
+webui/public/blocks.png
+docs/screenshots/
+docs/inspiration/
+.claude/

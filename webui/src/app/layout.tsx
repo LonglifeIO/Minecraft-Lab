@@ -1,16 +1,22 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import { ToastProvider } from "@/components/toast";
+import { ParticleBackground } from "@/components/particles";
 
 export const metadata: Metadata = {
-  title: "MC Server Admin",
-  description: "Family Minecraft Server Dashboard",
+  title: "MinecraftLab",
+  description: "Minecraft Server Dashboard",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-      <body className="min-h-screen bg-zinc-950 text-zinc-100 antialiased">
-        {children}
+      <body className="min-h-screen">
+        <div className="mc-dirt-bg" />
+        <ParticleBackground />
+        <ToastProvider>
+          <div className="mc-content">{children}</div>
+        </ToastProvider>
       </body>
     </html>
   );

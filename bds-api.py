@@ -123,7 +123,7 @@ def get_status():
 
     if running:
         result["version"] = get_version()
-        output = send_and_capture("list", wait=1.0)
+        output = send_and_capture("list", wait=0.5)
         lines = output.strip().split("\n")
         for i, line in enumerate(lines):
             clean = strip_log_prefix(line)
