@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import useSWR from "swr";
+import { useLikedAddons, type LikedAddon } from "@/lib/use-liked-addons";
 
 const fetcher = (url: string) => fetch(url).then((r) => { if (r.status === 401) throw new Error("unauthorized"); return r.json(); });
 
@@ -30,6 +31,13 @@ const SORT_OPTIONS = [
   { label: "Downloads", value: "6" },
 ];
 
+const CATEGORY_OPTIONS = [
+  { label: "All", value: "" },
+  { label: "Worlds", value: "4560" },
+  { label: "Resource Packs", value: "4561" },
+  { label: "Scenarios", value: "4562" },
+];
+
 function formatCount(n: number): string {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
   if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
@@ -52,11 +60,14 @@ export default function AddonsPage() {
   const [query, setQuery] = useState("");
   const [searchInput, setSearchInput] = useState("");
   const [sortField, setSortField] = useState("2");
+  const [categoryId, setCategoryId] = useState<string>("");
   const [page, setPage] = useState(0);
   const pageSize = 20;
+  const { isLiked, toggle, count } = useLikedAddons();
 
   const params = new URLSearchParams({ pageSize: String(pageSize), index: String(page * pageSize), sortField });
   if (query) params.set("q", query);
+  if (categoryId) params.set("categoryId", categoryId);
 
   const { data, error, isLoading } = useSWR<SearchResponse>(
     `/api/addons/search?${params.toString()}`,
@@ -70,6 +81,18 @@ export default function AddonsPage() {
     setPage(0);
   }
 
+  function toLikedAddon(addon: SearchResult): LikedAddon {
+    return {
+      id: addon.id,
+      name: addon.name,
+      thumbUrl: addon.thumbUrl,
+      authors: addon.authors,
+      downloadCount: addon.downloadCount,
+      dateModified: addon.dateModified,
+      summary: addon.summary,
+    };
+  }
+
   const totalPages = data ? Math.ceil(data.pagination.totalCount / pageSize) : 0;
 
   return (
@@ -80,6 +103,9 @@ export default function AddonsPage() {
           <Link href="/"><button className="mc-btn text-xs px-2 py-0">&lt;</button></Link>
           <span className="mc-title text-sm">Add-on Library</span>
         </div>
+        <Link href="/addons/liked" className="mc-btn text-xs px-3 py-1">
+          ♥ Saved ({count})
+        </Link>
       </div>
 
       {/* Search + Filters */}
@@ -93,13 +119,25 @@ export default function AddonsPage() {
           />
           <button type="submit" className="mc-btn text-xs px-4">Search</button>
         </form>
-        <div className="flex gap-2 items-center">
+        <div className="flex gap-2 items-center flex-wrap mb-2">
           <span className="mc-gray text-xs">Sort:</span>
           {SORT_OPTIONS.map((opt) => (
             <button
               key={opt.value}
               className={`mc-btn text-xs px-2 py-0 ${sortField === opt.value ? "mc-btn-active" : ""}`}
               onClick={() => { setSortField(opt.value); setPage(0); }}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+        <div className="flex gap-2 items-center flex-wrap">
+          <span className="mc-gray text-xs">Type:</span>
+          {CATEGORY_OPTIONS.map((opt) => (
+            <button
+              key={opt.label}
+              className={`mc-btn text-xs px-2 py-0 ${categoryId === opt.value ? "mc-btn-active" : ""}`}
+              onClick={() => { setCategoryId(opt.value); setPage(0); }}
             >
               {opt.label}
             </button>
@@ -139,7 +177,19 @@ export default function AddonsPage() {
           data?.results?.map((addon) => (
             <Link key={addon.id} href={`/addons/${addon.id}`} className="h-full">
               <div className="mc-addon-card">
-                <div className="mc-addon-banner">
+                <div className="mc-addon-banner relative">
+                  <button
+                    type="button"
+                    aria-label={isLiked(addon.id) ? `Remove ${addon.name} from saved add-ons` : `Save ${addon.name}`}
+                    className="absolute right-2 top-2 z-10 rounded-full bg-black/65 px-2 py-1 text-sm leading-none text-white"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      toggle(toLikedAddon(addon));
+                    }}
+                  >
+                    <span className={isLiked(addon.id) ? "text-red-500" : "text-white/80"}>{isLiked(addon.id) ? "❤" : "♡"}</span>
+                  </button>
                   {addon.thumbUrl ? (
                     <img src={addon.thumbUrl} alt="" className="transition-transform duration-500 hover:scale-105" />
                   ) : (

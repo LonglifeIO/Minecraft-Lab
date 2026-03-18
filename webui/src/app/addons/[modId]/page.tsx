@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import useSWR from "swr";
 import { useToast } from "@/components/toast";
+import { useLikedAddons, type LikedAddon } from "@/lib/use-liked-addons";
 
 const fetcher = (url: string) => fetch(url).then((r) => { if (r.status === 401) throw new Error("unauthorized"); return r.json(); });
 
@@ -61,6 +62,7 @@ export default function AddonDetailPage() {
   const [showWorldPicker, setShowWorldPicker] = useState(false);
   const [selectedFileId, setSelectedFileId] = useState<number | null>(null);
   const [screenshotIdx, setScreenshotIdx] = useState(0);
+  const { isLiked, toggle } = useLikedAddons();
 
   const { data, error, isLoading } = useSWR<{ addon: AddonDetail; files: AddonFile[] }>(
     `/api/addons/${modId}`,
@@ -98,6 +100,18 @@ export default function AddonDetailPage() {
     } finally {
       setInstalling(false);
     }
+  }
+
+  function toLikedAddon(detail: AddonDetail): LikedAddon {
+    return {
+      id: detail.id,
+      name: detail.name,
+      thumbUrl: detail.thumbUrl,
+      authors: detail.authors.map((author) => ({ name: author.name })),
+      downloadCount: detail.downloadCount,
+      dateModified: detail.dateModified,
+      summary: detail.summary,
+    };
   }
 
   return (
@@ -153,13 +167,22 @@ export default function AddonDetailPage() {
                 </div>
               </div>
               <div className="flex items-center justify-center sm:justify-end">
-                <button
-                  className={`mc-btn mc-btn-green text-sm px-10 py-3 w-full sm:w-auto font-bold tracking-widest ${!installing ? "mc-glint" : ""}`}
-                  disabled={installing || files.length === 0}
-                  onClick={() => setShowWorldPicker(true)}
-                >
-                  {installing ? "INSTALLING..." : "INSTALL TO WORLD"}
-                </button>
+                <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+                  <button
+                    type="button"
+                    className={`mc-btn text-xs px-4 py-3 w-full sm:w-auto ${addon && isLiked(addon.id) ? "mc-btn-active" : ""}`}
+                    onClick={() => addon && toggle(toLikedAddon(addon))}
+                  >
+                    {addon && isLiked(addon.id) ? "❤ Saved" : "♡ Save"}
+                  </button>
+                  <button
+                    className={`mc-btn mc-btn-green text-sm px-10 py-3 w-full sm:w-auto font-bold tracking-widest ${!installing ? "mc-glint" : ""}`}
+                    disabled={installing || files.length === 0}
+                    onClick={() => setShowWorldPicker(true)}
+                  >
+                    {installing ? "INSTALLING..." : "INSTALL TO WORLD"}
+                  </button>
+                </div>
               </div>
             </div>
 
