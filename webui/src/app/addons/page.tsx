@@ -124,14 +124,14 @@ export default function AddonsPage() {
           <div className="col-span-full p-8 text-center">
             <p className="mc-red text-xs">Failed to load add-ons</p>
           </div>
-        ) : data && data.results.length === 0 ? (
+        ) : data && (data.results?.length ?? 0) === 0 ? (
           <div className="col-span-full p-8 text-center">
             <p className="mc-gray text-xs">No add-ons found. Try a different search.</p>
           </div>
         ) : (
-          data?.results.map((addon) => (
+          data?.results?.map((addon) => (
             <Link key={addon.id} href={`/addons/${addon.id}`}>
-              <div className="mc-window-inner mc-lift h-full cursor-pointer flex flex-col justify-between hover:bg-[#999] transition-colors">
+              <div className="mc-window-inner mc-lift h-full cursor-pointer flex flex-col justify-between hover:bg-[#3a3a3a] transition-colors">
                 <div className="flex gap-3">
                   <div className="mc-item-slot">
                     {addon.thumbUrl ? (
@@ -142,17 +142,17 @@ export default function AddonsPage() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="mc-white text-xs font-bold truncate">{addon.name}</div>
-                    <div className="mc-dark-gray" style={{ fontSize: 9 }}>
-                      by <span className="mc-white">{addon.authors.map((a) => a.name).join(", ") || "Unknown"}</span>
+                    <div style={{ fontSize: 10, color: "#888", fontFamily: "system-ui, sans-serif" }}>
+                      by <span style={{ color: "#ccc" }}>{addon.authors.map((a) => a.name).join(", ") || "Unknown"}</span>
                     </div>
-                    <div className="mc-gray mt-1 line-clamp-2" style={{ fontSize: 10, lineHeight: 1.3 }}>
+                    <div style={{ fontSize: 11, color: "#bbb", fontFamily: "system-ui, sans-serif", lineHeight: 1.4, marginTop: 4 }} className="line-clamp-2">
                       {addon.summary}
                     </div>
                   </div>
                 </div>
-                <div className="flex justify-between items-end mt-3 border-t border-black/10 pt-2">
+                <div className="flex justify-between items-end mt-3 border-t border-white/10 pt-2">
                   <span className="mc-aqua" style={{ fontSize: 10 }}>{formatCount(addon.downloadCount)} dl</span>
-                  <span className="mc-dark-gray" style={{ fontSize: 9 }}>{timeAgo(addon.dateModified)}</span>
+                  <span style={{ fontSize: 10, color: "#777", fontFamily: "system-ui, sans-serif" }}>{timeAgo(addon.dateModified)}</span>
                 </div>
               </div>
             </Link>

@@ -5,7 +5,7 @@ const CURSEFORGE_API_KEY = process.env.CURSEDFORGE_API || "";
 const RETRY_DELAY_MS = 1000;
 
 export const CURSEFORGE_GAME_ID = 432;
-export const DEFAULT_CLASS_ID = 4471;
+export const DEFAULT_CLASS_ID = 4559; // mc-addons (Bedrock)
 
 export interface SearchParams {
   query?: string;
@@ -306,9 +306,7 @@ export async function searchAddons(params: SearchParams = {}): Promise<SearchRes
   if (typeof params.sortField === "number") {
     searchParams.set("sortField", String(params.sortField));
   }
-  if (params.sortOrder) {
-    searchParams.set("sortOrder", params.sortOrder);
-  }
+  searchParams.set("sortOrder", params.sortOrder ?? "desc");
 
   const response = await curseforgeRequest<CurseForgeMod[]>(
     `/v1/mods/search?${searchParams.toString()}`,

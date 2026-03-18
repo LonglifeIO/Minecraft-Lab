@@ -81,9 +81,9 @@ body {
 
 /* Inner content area of a window (darker inset) */
 .mc-window-inner {
-  background-color: #8b8b8b;
+  background-color: #2e2e2e;
   border: 2px solid;
-  border-color: var(--mc-panel-dark) var(--mc-panel-light) var(--mc-panel-light) var(--mc-panel-dark);
+  border-color: #1a1a1a #555 #555 #1a1a1a;
   padding: 8px;
 }
 
@@ -430,9 +430,9 @@ body {
 
 /* ========== ADDON DESCRIPTION CONTENT ========== */
 .mc-description {
-  font-family: 'Silkscreen', monospace;
-  font-size: 11px;
-  color: var(--mc-gray);
+  font-family: system-ui, sans-serif;
+  font-size: 13px;
+  color: #ccc;
   line-height: 1.6;
 }
 .mc-description h1, .mc-description h2, .mc-description h3 {
