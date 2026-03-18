@@ -1,4 +1,4 @@
-const HOST_API = process.env.HOST_API_URL || "http://192.168.137.218:8090";
+const HOST_API = process.env.HOST_API_URL || "";
 const API_TOKEN = process.env.BDS_API_TOKEN || "";
 
 async function hostRequest(path: string, options?: RequestInit) {

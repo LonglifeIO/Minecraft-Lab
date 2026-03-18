@@ -1,5 +1,7 @@
 node_modules/
 .next/
+__pycache__/
+*.pyc
 .env.local
 *.tar.gz
 .DS_Store
