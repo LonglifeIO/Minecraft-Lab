@@ -63,7 +63,7 @@ body {
   content: '';
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.45);
+  background: rgba(0, 0, 0, 0.65);
   z-index: 0;
 }
 
@@ -72,27 +72,75 @@ body {
 /* ========== INVENTORY-STYLE PANEL ========== */
 /* Mimics the Minecraft inventory/chest window */
 .mc-window {
-  background-color: #48494a;
+  background-color: #313233;
   border: 2px solid;
-  border-color: #5a5b5c #1e1e1f #1e1e1f #5a5b5c;
-  box-shadow: 4px 4px 0 rgba(0,0,0,0.3);
+  border-color: #4a4b4c #141415 #141415 #4a4b4c;
+  box-shadow: 6px 6px 0 rgba(0,0,0,0.4);
   padding: 6px;
 }
 
 /* Inner content area of a window (darker inset) */
 .mc-window-inner {
-  background-color: #8b8b8b;
+  background-color: #1e1e1e;
   border: 2px solid;
-  border-color: var(--mc-panel-dark) var(--mc-panel-light) var(--mc-panel-light) var(--mc-panel-dark);
+  border-color: #000 #373737 #373737 #000;
   padding: 8px;
 }
 
 /* Dark stone panel (like settings background) */
 .mc-dark-panel {
-  background-color: #48494a;
+  background-color: #181818;
   border: 2px solid;
-  border-color: #5a5b5c #1e1e1f #1e1e1f #5a5b5c;
-  box-shadow: 4px 4px 0 rgba(0,0,0,0.3);
+  border-color: #2e2e2e #000 #000 #2e2e2e;
+  box-shadow: 4px 4px 0 rgba(0,0,0,0.5);
+}
+
+/* ========== ADDON CARD (Premium CurseForge style) ========== */
+.mc-addon-card {
+  background-color: #111111;
+  border: 2px solid #2e2e2e;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  transition: border-color 0.2s, transform 0.2s, box-shadow 0.2s;
+  overflow: hidden;
+}
+.mc-addon-card:hover {
+  border-color: var(--mc-gold);
+  transform: translateY(-4px);
+  box-shadow: 0 8px 16px rgba(0,0,0,0.6), 0 0 12px rgba(255,170,0,0.15);
+}
+
+.mc-addon-banner {
+  width: 100%;
+  height: 130px;
+  background-color: #000;
+  position: relative;
+  overflow: hidden;
+  border-bottom: 2px solid #2e2e2e;
+}
+.mc-addon-banner img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.mc-addon-banner-placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #2a2a2a, #1a1a1a);
+  font-size: 48px;
+  color: #333;
+  font-family: 'Silkscreen', monospace;
+}
+
+.mc-addon-card-body {
+  padding: 12px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
 }
 
 /* ========== BUTTONS ========== */
@@ -420,33 +468,32 @@ body {
 /* ========== INVENTORY GRID ========== */
 .mc-inventory-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 8px;
-  background: #8b8b8b;
-  border: 2px solid;
-  border-color: #373737 #ffffff #ffffff #373737;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 16px;
   padding: 8px;
 }
 
 /* ========== ADDON DESCRIPTION CONTENT ========== */
 .mc-description {
-  font-family: 'Silkscreen', monospace;
-  font-size: 11px;
-  color: var(--mc-gray);
+  font-family: system-ui, -apple-system, sans-serif;
+  font-size: 14px;
+  color: #cccccc;
   line-height: 1.6;
 }
 .mc-description h1, .mc-description h2, .mc-description h3 {
+  font-family: 'Silkscreen', monospace;
   color: var(--mc-gold);
-  margin-top: 12px;
-  margin-bottom: 6px;
-  font-size: 12px;
+  margin-top: 24px;
+  margin-bottom: 12px;
+  font-size: 16px;
   text-transform: uppercase;
+  text-shadow: 1px 1px 0 #000;
 }
-.mc-description p { margin-bottom: 8px; }
-.mc-description ul, .mc-description ol { margin-left: 16px; margin-bottom: 8px; }
-.mc-description li { margin-bottom: 2px; }
+.mc-description p { margin-bottom: 12px; }
+.mc-description ul, .mc-description ol { margin-left: 24px; margin-bottom: 12px; list-style-type: disc; }
+.mc-description li { margin-bottom: 4px; }
 .mc-description a { color: var(--mc-aqua); text-decoration: underline; }
-.mc-description img { border: 2px solid #555; margin: 8px 0; max-width: 100%; }
+.mc-description img { border: 2px solid #373737; margin: 16px 0; max-width: 100%; box-shadow: 0 4px 8px rgba(0,0,0,0.5); }
 
 /* ========== PLAYER AVATAR ========== */
 .mc-avatar {

@@ -107,16 +107,23 @@ export default function AddonsPage() {
         </div>
       </div>
 
-      {/* Results — inventory grid with skeleton loading */}
+      {/* Results — vertical cards with skeleton loading */}
       <div className="mc-inventory-grid mb-4">
         {isLoading ? (
-          Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className="mc-window-inner flex gap-3 opacity-50">
-              <div className="mc-item-slot mc-skeleton" />
-              <div className="flex-1 space-y-2 py-1">
-                <div className="h-3 w-2/3 mc-skeleton" />
-                <div className="h-2 w-full mc-skeleton" />
-                <div className="h-2 w-1/2 mc-skeleton" />
+          Array.from({ length: 8 }).map((_, i) => (
+            <div key={i} className="mc-addon-card opacity-50">
+              <div className="mc-addon-banner mc-skeleton" />
+              <div className="mc-addon-card-body space-y-3">
+                <div className="h-4 w-3/4 mc-skeleton" />
+                <div className="h-3 w-1/4 mc-skeleton" />
+                <div className="space-y-2">
+                  <div className="h-2 w-full mc-skeleton" />
+                  <div className="h-2 w-full mc-skeleton" />
+                </div>
+                <div className="flex justify-between pt-2">
+                  <div className="h-3 w-1/4 mc-skeleton" />
+                  <div className="h-3 w-1/4 mc-skeleton" />
+                </div>
               </div>
             </div>
           ))
@@ -130,29 +137,32 @@ export default function AddonsPage() {
           </div>
         ) : (
           data?.results.map((addon) => (
-            <Link key={addon.id} href={`/addons/${addon.id}`}>
-              <div className="mc-window-inner mc-lift h-full cursor-pointer flex flex-col justify-between hover:bg-[#999] transition-colors">
-                <div className="flex gap-3">
-                  <div className="mc-item-slot">
-                    {addon.thumbUrl ? (
-                      <img src={addon.thumbUrl} alt="" />
-                    ) : (
-                      <span className="mc-gold text-lg">{addon.name.charAt(0)}</span>
-                    )}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="mc-white text-xs font-bold truncate">{addon.name}</div>
-                    <div className="mc-dark-gray" style={{ fontSize: 9 }}>
-                      by <span className="mc-white">{addon.authors.map((a) => a.name).join(", ") || "Unknown"}</span>
+            <Link key={addon.id} href={`/addons/${addon.id}`} className="h-full">
+              <div className="mc-addon-card">
+                <div className="mc-addon-banner">
+                  {addon.thumbUrl ? (
+                    <img src={addon.thumbUrl} alt="" className="transition-transform duration-500 hover:scale-105" />
+                  ) : (
+                    <div className="mc-addon-banner-placeholder">
+                      {addon.name.charAt(0)}
                     </div>
-                    <div className="mc-gray mt-1 line-clamp-2" style={{ fontSize: 10, lineHeight: 1.3 }}>
-                      {addon.summary}
-                    </div>
-                  </div>
+                  )}
                 </div>
-                <div className="flex justify-between items-end mt-3 border-t border-black/10 pt-2">
-                  <span className="mc-aqua" style={{ fontSize: 10 }}>{formatCount(addon.downloadCount)} dl</span>
-                  <span className="mc-dark-gray" style={{ fontSize: 9 }}>{timeAgo(addon.dateModified)}</span>
+                <div className="mc-addon-card-body">
+                  <div className="mc-white text-sm font-bold truncate mb-1">{addon.name}</div>
+                  <div className="mc-dark-gray text-[10px] mb-3">
+                    by <span className="mc-white">{addon.authors.map((a) => a.name).join(", ") || "Unknown"}</span>
+                  </div>
+                  <div className="mc-gray flex-1 text-[11px] line-clamp-2 leading-relaxed font-sans mb-4">
+                    {addon.summary}
+                  </div>
+                  <div className="flex justify-between items-center pt-3 border-t border-white/5 mt-auto">
+                    <div className="flex items-center gap-1.5">
+                      <span className="mc-aqua text-[10px] font-bold">{formatCount(addon.downloadCount)}</span>
+                      <span className="mc-dark-gray text-[9px] uppercase tracking-wider">Downloads</span>
+                    </div>
+                    <span className="mc-dark-gray text-[10px]">{timeAgo(addon.dateModified)}</span>
+                  </div>
                 </div>
               </div>
             </Link>
