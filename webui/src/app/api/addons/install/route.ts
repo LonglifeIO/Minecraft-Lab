@@ -21,10 +21,10 @@ export async function POST(req: NextRequest) {
     if (!world) return NextResponse.json({ error: "server not found" }, { status: 404 });
     const server = { id: world.id, name: world.name, host: world.ip, apiPort: world.apiPort };
 
-    const properties = await (bds as any).getProperties(server);
-    const worldName = properties["level-name"];
+    const properties = await bds.getProperties(server);
+    const worldName = properties["level-name"] || "world";
     const url = await getDownloadUrl(modId, fileId);
-    const result = await (bds as any).installAddon(server, { url, worldName, modId, fileId, addonName });
+    const result = await bds.installAddon(server, { url, worldName, modId, fileId, addonName });
 
     return NextResponse.json(result);
   } catch {

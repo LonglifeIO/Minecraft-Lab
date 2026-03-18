@@ -191,9 +191,12 @@ export default function Dashboard() {
       {/* Title bar */}
       <div className="mc-dark-panel flex items-center justify-between px-4 py-2 mb-6">
         <h1 className="mc-title text-lg">MinecraftLab</h1>
-        <button className="mc-btn text-xs px-3 py-1" onClick={async () => { await fetch("/api/logout", { method: "POST" }); router.push("/login"); }}>
-          Disconnect
-        </button>
+        <div className="flex items-center gap-2">
+          <Link href="/addons"><button className="mc-btn text-xs px-3 py-1">Add-ons</button></Link>
+          <button className="mc-btn text-xs px-3 py-1" onClick={async () => { await fetch("/api/logout", { method: "POST" }); router.push("/login"); }}>
+            Disconnect
+          </button>
+        </div>
       </div>
 
       {isLoading && <p className="mc-gray text-xs py-8 text-center">Loading worlds...</p>}

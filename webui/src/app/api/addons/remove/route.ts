@@ -19,9 +19,9 @@ export async function POST(req: NextRequest) {
     if (!world) return NextResponse.json({ error: "server not found" }, { status: 404 });
     const server = { id: world.id, name: world.name, host: world.ip, apiPort: world.apiPort };
 
-    const properties = await (bds as any).getProperties(server);
-    const worldName = properties["level-name"];
-    const result = await (bds as any).removeAddon(server, { uuid, worldName });
+    const properties = await bds.getProperties(server);
+    const worldName = properties["level-name"] || "world";
+    const result = await bds.removeAddon(server, { uuid, worldName });
 
     return NextResponse.json(result);
   } catch {

@@ -15,9 +15,9 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     if (!world) return NextResponse.json({ error: "server not found" }, { status: 404 });
     const server = { id: world.id, name: world.name, host: world.ip, apiPort: world.apiPort };
 
-    const properties = await (bds as any).getProperties(server);
-    const worldName = properties["level-name"];
-    const result = await (bds as any).getWorldAddons(server, worldName);
+    const properties = await bds.getProperties(server);
+    const worldName = properties["level-name"] || "world";
+    const result = await bds.getWorldAddons(server, worldName);
 
     return NextResponse.json(result);
   } catch {
@@ -48,9 +48,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     if (!world) return NextResponse.json({ error: "server not found" }, { status: 404 });
     const server = { id: world.id, name: world.name, host: world.ip, apiPort: world.apiPort };
 
-    const properties = await (bds as any).getProperties(server);
-    const worldName = properties["level-name"];
-    const result = await (bds as any).toggleAddon(server, { uuid, worldName, enabled });
+    const properties = await bds.getProperties(server);
+    const worldName = properties["level-name"] || "world";
+    const result = await bds.toggleAddon(server, { uuid, worldName, enabled });
 
     return NextResponse.json(result);
   } catch {

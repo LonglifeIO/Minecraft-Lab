@@ -6,6 +6,17 @@ import useSWR from "swr";
 import Link from "next/link";
 import { useToast } from "@/components/toast";
 
+interface InstalledAddon {
+  uuid: string;
+  name: string;
+  description: string;
+  version: number[];
+  type: string;
+  packType: string;
+  enabled: boolean;
+  curseforge: { modId: number; fileId: number } | null;
+}
+
 const fetcher = (url: string) => fetch(url).then((r) => { if (r.status === 401) throw new Error("unauthorized"); return r.json(); });
 
 interface WorldData {
@@ -250,8 +261,111 @@ export default function WorldPage() {
               </div>
             </div>
           </div>
+
+          {/* Installed Add-ons */}
+          <WorldAddons id={id} busy={busy} setBusy={setBusy} />
         </>
       )}
+    </div>
+  );
+}
+
+function WorldAddons({ id, busy, setBusy }: { id: string; busy: string | null; setBusy: (v: string | null) => void }) {
+  const { toast } = useToast();
+  const { data: addons, mutate } = useSWR<InstalledAddon[]>(`/api/servers/${id}/addons`, fetcher, { refreshInterval: 10000 });
+
+  async function handleToggle(addon: InstalledAddon) {
+    setBusy(`toggle-${addon.uuid}`);
+    try {
+      const res = await fetch(`/api/servers/${id}/addons`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "toggle", uuid: addon.uuid, enabled: !addon.enabled }),
+      });
+      const result = await res.json();
+      if (result.success) {
+        toast(`${addon.name} ${!addon.enabled ? "enabled" : "disabled"}. Restart to apply.`, "success");
+        mutate();
+      } else {
+        toast(result.error || "Toggle failed", "error");
+      }
+    } catch { toast("Network error", "error"); }
+    finally { setBusy(null); }
+  }
+
+  async function handleRemove(addon: InstalledAddon) {
+    if (!confirm(`Remove "${addon.name}"? This will delete the pack files.`)) return;
+    setBusy(`remove-${addon.uuid}`);
+    toast("Removing...", "info");
+    try {
+      const res = await fetch("/api/addons/remove", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ uuid: addon.uuid, worldId: id }),
+      });
+      const result = await res.json();
+      if (result.success) {
+        toast(`${addon.name} removed. Restart to apply.`, "success");
+        mutate();
+      } else {
+        toast(result.error || "Remove failed", "error");
+      }
+    } catch { toast("Network error", "error"); }
+    finally { setBusy(null); }
+  }
+
+  return (
+    <div className="mc-dark-panel mb-4">
+      <div className="p-3 pb-1 flex items-center justify-between">
+        <div className="mc-section">Installed Add-ons</div>
+        <Link href="/addons">
+          <button className="mc-btn mc-btn-green text-xs px-2 py-0">Browse Add-ons</button>
+        </Link>
+      </div>
+
+      {(!addons || addons.length === 0) && (
+        <p className="mc-dark-gray text-xs px-3 pb-3">No add-ons installed. Browse the library to get started.</p>
+      )}
+
+      {addons?.map((addon) => (
+        <div key={addon.uuid} className="mc-row flex items-center justify-between px-3 py-2.5">
+          <div className="flex items-center gap-3 flex-1 min-w-0">
+            <div
+              className="w-8 h-8 flex-shrink-0 flex items-center justify-center"
+              style={{
+                background: addon.packType === "behavior" ? "#2a4a2a" : "#2a2a4a",
+                border: `2px solid ${addon.packType === "behavior" ? "#4a8a4a" : "#4a4a8a"}`,
+              }}
+            >
+              <span style={{ fontSize: 10, color: addon.packType === "behavior" ? "var(--mc-green)" : "var(--mc-aqua)" }}>
+                {addon.packType === "behavior" ? "BP" : "RP"}
+              </span>
+            </div>
+            <div className="min-w-0">
+              <div className="mc-white text-xs truncate">{addon.name || addon.uuid.slice(0, 8)}</div>
+              <div className="mc-dark-gray" style={{ fontSize: 10 }}>
+                v{(addon.version || []).join(".")} &middot; {addon.packType === "behavior" ? "Behavior Pack" : "Resource Pack"}
+              </div>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <button
+              onClick={() => handleToggle(addon)}
+              disabled={busy !== null}
+              className={`mc-toggle ${addon.enabled ? "mc-toggle-on" : ""}`}
+            >
+              <div className="mc-toggle-knob" />
+            </button>
+            <button
+              className="mc-btn mc-btn-red text-xs px-2 py-0"
+              onClick={() => handleRemove(addon)}
+              disabled={busy !== null}
+            >
+              {busy === `remove-${addon.uuid}` ? "..." : "X"}
+            </button>
+          </div>
+        </div>
+      ))}
     </div>
   );
 }

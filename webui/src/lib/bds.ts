@@ -88,3 +88,27 @@ export async function applyPreset(server: ServerConfig, preset: string) {
 export async function triggerBackup(server: ServerConfig) {
   return bdsRequest(server, "/backup", { method: "POST" });
 }
+
+export async function getAddons(server: ServerConfig) {
+  try { return await bdsRequest(server, "/addons"); } catch { return []; }
+}
+
+export async function getWorldAddons(server: ServerConfig, worldName: string) {
+  try { return await bdsRequest(server, `/addons/world?name=${encodeURIComponent(worldName)}`); } catch { return []; }
+}
+
+export async function getProperties(server: ServerConfig) {
+  try { return await bdsRequest(server, "/properties"); } catch { return {}; }
+}
+
+export async function installAddon(server: ServerConfig, data: { url: string; worldName: string; modId: number; fileId: number; addonName: string }) {
+  return bdsRequest(server, "/addons/install", { method: "POST", body: JSON.stringify(data) });
+}
+
+export async function removeAddon(server: ServerConfig, data: { uuid: string; worldName: string }) {
+  return bdsRequest(server, "/addons/remove", { method: "POST", body: JSON.stringify(data) });
+}
+
+export async function toggleAddon(server: ServerConfig, data: { uuid: string; worldName: string; enabled: boolean }) {
+  return bdsRequest(server, "/addons/toggle", { method: "POST", body: JSON.stringify(data) });
+}
