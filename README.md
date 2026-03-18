@@ -150,12 +150,12 @@ SERVERS=world1|My World|192.168.1.100|8080,world2|World 2|192.168.1.101|8080
 
 ## Hardware
 
-Designed for and tested on:
-- Mac Mini 2019 (Intel i7-8700B, 64GB RAM, Apple NVMe)
-- Proxmox VE 9.1
-- Wired Ethernet
-
-Should work on any Proxmox host with 8GB+ RAM.
+Recommended specs:
+- **CPU:** 4+ cores (Intel/AMD x86-64)
+- **RAM:** 8GB minimum, 16GB+ recommended (2GB per BDS world)
+- **Storage:** 50GB+ SSD
+- **Network:** Wired Ethernet recommended
+- **Hypervisor:** Proxmox VE 9.x
 
 ## License
 
