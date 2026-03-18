@@ -189,103 +189,137 @@ export default function Dashboard() {
       )}
 
       {/* Title bar */}
-      <div className="mc-dark-panel flex items-center justify-between px-4 py-2 mb-6">
-        <h1 className="mc-title text-lg">MinecraftLab</h1>
-        <div className="flex items-center gap-2">
-          <Link href="/addons"><button className="mc-btn text-xs px-3 py-1">Add-ons</button></Link>
-          <button className="mc-btn text-xs px-3 py-1" onClick={async () => { await fetch("/api/logout", { method: "POST" }); router.push("/login"); }}>
-            Disconnect
+      <div className="mc-dark-panel flex items-center justify-between px-6 py-4 mb-8 border-b-4 border-black/30">
+        <div className="flex flex-col">
+          <h1 className="mc-title text-3xl tracking-tighter" style={{ textShadow: "4px 4px 0 rgba(0,0,0,0.5), 0 0 20px rgba(255,155,46,0.3)" }}>MinecraftLab</h1>
+          <p className="mc-dark-gray text-[10px] uppercase tracking-widest mt-1">Experimental Server Hub</p>
+        </div>
+        <div className="flex items-center gap-3">
+          <Link href="/addons"><button className="mc-btn mc-btn-amber text-xs px-4 py-1.5 font-bold">BROWSE ADD-ONS</button></Link>
+          <button className="mc-btn text-xs px-4 py-1.5" onClick={async () => { await fetch("/api/logout", { method: "POST" }); router.push("/login"); }}>
+            LOGOUT
           </button>
         </div>
       </div>
 
-      {isLoading && <p className="mc-gray text-xs py-8 text-center">Loading worlds...</p>}
-      {error && !isLoading && <p className="mc-red text-xs py-8 text-center">Error loading worlds</p>}
+      {isLoading && <p className="mc-gray text-xs py-8 text-center animate-pulse">Scanning for active worlds...</p>}
+      {error && !isLoading && <p className="mc-red text-xs py-8 text-center">Connection to host lost. Reconnecting...</p>}
 
       {/* Your Worlds */}
-      <div className="mc-section mb-3 text-center">Your Worlds</div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8 max-w-2xl mx-auto">
+      <div className="mc-section mb-6 text-center text-lg uppercase tracking-widest">Active Instances</div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-12 max-w-4xl mx-auto">
         {servers?.map((server) => (
-          <div key={server.id} className="mc-dark-panel p-4 h-full" style={{ overflow: "visible" }}>
-            <div className="flex items-center justify-between mb-3">
-              <Link href={server.id === "creating" ? "#" : `/world/${server.id}`} className="flex items-center gap-2 flex-1 min-w-0">
-                <div className="mc-avatar flex-shrink-0">{server.name.charAt(0)}</div>
-                <span className="mc-white text-sm truncate">{server.name}</span>
+          <div 
+            key={server.id} 
+            className={`mc-dark-panel p-5 transition-all duration-300 relative group ${server.online ? "border-green-500/30 shadow-[0_0_15px_rgba(85,255,85,0.1)]" : "opacity-80"}`}
+            style={{ 
+              overflow: "visible",
+              borderWidth: "2px",
+              borderColor: server.online ? "#55ff5544" : "#2e2e2e"
+            }}
+          >
+            {server.online && (
+              <div className="absolute -inset-[1px] bg-gradient-to-r from-green-500/20 to-emerald-500/20 rounded-sm blur-sm opacity-50 group-hover:opacity-100 transition-opacity pointer-events-none" />
+            )}
+            
+            <div className="flex items-start justify-between mb-4 relative z-10">
+              <Link href={server.id === "creating" ? "#" : `/world/${server.id}`} className="flex items-center gap-3 flex-1 min-w-0">
+                <div className={`mc-avatar w-12 h-12 text-xl border-2 transition-transform duration-300 group-hover:scale-110 ${server.online ? "border-green-500/50" : "border-gray-700"}`}>
+                  {server.name.charAt(0)}
+                </div>
+                <div className="flex flex-col min-w-0">
+                  <span className="mc-white text-base font-bold truncate tracking-tight">{server.name}</span>
+                  <span className="mc-dark-gray text-[10px] uppercase">{server.id.slice(0, 8)}</span>
+                </div>
               </Link>
-              <div className="flex items-center gap-2 flex-shrink-0">
-                <span className={`mc-status ${server.online ? "mc-status-online" : "mc-status-offline"}`}>
-                  <span className={server.online ? "mc-pulse" : ""}>&#x25CF;</span>
-                  {server.online ? " Online" : server.running ? " Starting" : " Offline"}
+              <div className="flex flex-col items-end gap-2 flex-shrink-0">
+                <WorldMenu server={server} onAction={(a) => handleWorldAction(server, a)} />
+                <span className={`mc-status text-[9px] px-2 py-0.5 font-bold uppercase ${server.online ? "mc-status-online" : "mc-status-offline"}`}>
+                  {server.online ? "Online" : server.running ? "Starting" : "Offline"}
                 </span>
-                {server.id !== "creating" && (
-                  <WorldMenu server={server} onAction={(a) => handleWorldAction(server, a)} />
-                )}
               </div>
             </div>
 
-            {server.id === "creating" ? (
-              <p className="mc-gold text-xs">Setting up world...</p>
-            ) : server.online ? (
-              <>
-                <div className="space-y-1 mb-3">
-                  <div className="flex justify-between text-xs">
-                    <span className="mc-gray">Players</span>
-                    <span className="mc-green">{server.players}<span className="mc-dark-gray">/{server.maxPlayers}</span></span>
-                  </div>
-                  <div className="mc-xp-bar">
-                    <div className="mc-xp-fill" style={{ width: `${Math.max((server.players / server.maxPlayers) * 100, 2)}%` }} />
-                  </div>
+            <div className="relative z-10">
+              {server.id === "creating" ? (
+                <div className="py-4 text-center">
+                  <p className="mc-gold text-xs animate-bounce">Provisioning Resources...</p>
                 </div>
-                <div className="flex gap-4 text-xs">
-                  <span><span className="mc-gray">Mode: </span><span className="mc-aqua capitalize">{server.gamemode}</span></span>
-                  <span><span className="mc-gray">Diff: </span><span className="mc-gold capitalize">{server.difficulty}</span></span>
+              ) : server.online ? (
+                <>
+                  <div className="space-y-2 mb-4 bg-black/40 p-3 border border-white/5">
+                    <div className="flex justify-between text-[10px] uppercase font-bold tracking-wider">
+                      <span className="mc-gray">Network Load</span>
+                      <span className="mc-green">{server.players}<span className="mc-dark-gray">/{server.maxPlayers}</span></span>
+                    </div>
+                    <div className="mc-xp-bar h-2.5">
+                      <div className="mc-xp-fill shadow-[0_0_10px_rgba(128,255,32,0.5)]" style={{ width: `${Math.max((server.players / server.maxPlayers) * 100, 2)}%` }} />
+                    </div>
+                  </div>
+                  <div className="flex gap-4 text-[11px] px-1">
+                    <span className="flex items-center gap-1.5"><div className="w-1.5 h-1.5 bg-aqua-400" /><span className="mc-gray uppercase">Mode</span> <span className="mc-aqua font-bold">{server.gamemode}</span></span>
+                    <span className="flex items-center gap-1.5"><div className="w-1.5 h-1.5 bg-gold-400" /><span className="mc-gray uppercase">Diff</span> <span className="mc-gold font-bold">{server.difficulty}</span></span>
+                  </div>
+                </>
+              ) : (
+                <div className="py-6 text-center bg-black/20 border border-dashed border-white/5">
+                  <p className="mc-dark-gray text-xs uppercase tracking-widest">{server.running ? "Awaiting Core Services..." : "Instance Dormant"}</p>
                 </div>
-              </>
-            ) : (
-              <p className="mc-dark-gray text-xs">{server.running ? "Server is starting..." : "Server is offline"}</p>
-            )}
+              )}
 
-            {server.id !== "creating" && (
-              <Link href={`/world/${server.id}`} className="block mt-3">
-                <button className="mc-btn w-full text-xs">Manage</button>
-              </Link>
-            )}
-          </div>
-        ))}
-      </div>
-
-      {/* Create World */}
-      <div className="mc-sep" />
-      <div className="flex justify-center my-6">
-        {creating ? (
-          <div className="mc-dark-panel p-4 w-80">
-            <div className="mc-section text-center mb-3">New World</div>
-            <input
-              className="mc-input mb-3"
-              placeholder="World name"
-              value={newName}
-              onChange={(e) => setNewName(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleCreate()}
-              disabled={busy}
-              autoFocus
-            />
-            <div className="flex gap-2">
-              <button className="mc-btn flex-1" onClick={() => { setCreating(false); setNewName(""); }} disabled={busy}>Cancel</button>
-              <button className="mc-btn mc-btn-green flex-1" onClick={handleCreate} disabled={busy || !newName.trim()}>
-                {busy ? "Creating..." : "Create"}
-              </button>
+              {server.id !== "creating" && (
+                <Link href={`/world/${server.id}`} className="block mt-5">
+                  <button className={`mc-btn w-full text-xs font-bold py-2 tracking-widest transition-colors ${server.online ? "mc-btn-active" : ""}`}>
+                    OPEN DASHBOARD
+                  </button>
+                </Link>
+              )}
             </div>
           </div>
-        ) : (
+        ))}
+
+        {/* Create World Card */}
+        {!creating && (
           <div
-            className="mc-dark-panel mc-lift p-4 cursor-pointer flex flex-col items-center justify-center w-64 opacity-60 hover:opacity-100 transition-opacity"
+            className="mc-dark-panel mc-lift p-5 cursor-pointer flex flex-col items-center justify-center h-full min-h-[180px] group border-dashed border-2 border-white/10 hover:border-white/30 transition-all duration-300 bg-black/20"
             onClick={() => setCreating(true)}
           >
-            <span className="mc-white text-2xl mb-1">+</span>
-            <span className="mc-gray text-xs">Create New World</span>
+            <div className="w-12 h-12 rounded-full bg-white/5 flex items-center justify-center mb-4 group-hover:scale-110 group-hover:bg-white/10 transition-all">
+              <span className="mc-white text-4xl leading-none font-light">+</span>
+            </div>
+            <span className="mc-gray text-[10px] uppercase font-bold tracking-[0.2em] group-hover:mc-white transition-colors">Initialize New Instance</span>
           </div>
         )}
       </div>
+
+      {/* Create World Form Modal-ish */}
+      {creating && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+          <div className="mc-dark-panel p-6 w-full max-w-md border-t-4 border-green-500 shadow-[0_20px_50px_rgba(0,0,0,0.5)]">
+            <div className="mc-section text-center mb-6 text-xl tracking-widest uppercase">New World Initialization</div>
+            <div className="space-y-4">
+              <div>
+                <label className="mc-dark-gray text-[10px] uppercase font-bold mb-1.5 block">Instance Label</label>
+                <input
+                  className="mc-input py-3 text-base"
+                  placeholder="e.g. Survival SMP"
+                  value={newName}
+                  onChange={(e) => setNewName(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && handleCreate()}
+                  disabled={busy}
+                  autoFocus
+                />
+              </div>
+              <div className="flex gap-3 pt-4">
+                <button className="mc-btn flex-1 py-3 text-xs uppercase font-bold" onClick={() => { setCreating(false); setNewName(""); }} disabled={busy}>Abort</button>
+                <button className="mc-btn mc-btn-green flex-1 py-3 text-xs uppercase font-bold" onClick={handleCreate} disabled={busy || !newName.trim()}>
+                  {busy ? "Deploying..." : "Initialize"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Footer */}
       <div className="mc-sep" />

@@ -127,41 +127,46 @@ export default function AddonDetailPage() {
       {addon && (
         <>
           {/* Header */}
-          <div className="mc-window p-4 mb-4">
-            <div className="flex gap-4">
-              <div className="mc-item-slot w-16 h-16 border-4">
+          <div className="mc-window p-6 mb-6">
+            <div className="flex flex-col sm:flex-row gap-6">
+              <div className="mc-item-slot w-24 h-24 sm:w-32 sm:h-32 border-4 shadow-lg bg-black/40 self-center sm:self-start">
                 {addon.thumbUrl ? (
-                  <img src={addon.thumbUrl} alt="" />
+                  <img src={addon.thumbUrl} alt="" className="w-full h-full object-cover" />
                 ) : (
-                  <span className="mc-gold text-2xl">{addon.name.charAt(0)}</span>
+                  <span className="mc-gold text-4xl">{addon.name.charAt(0)}</span>
                 )}
               </div>
-              <div className="flex-1 min-w-0">
-                <h2 className="mc-white text-sm mb-1 truncate">{addon.name}</h2>
-                <p className="mc-dark-gray" style={{ fontSize: 10 }}>
-                  by <span className="mc-white">{addon.authors.map((a) => a.name).join(", ")}</span>
+              <div className="flex-1 min-w-0 flex flex-col justify-center">
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mb-2">
+                  <h2 className="mc-white text-2xl font-bold tracking-tight">{addon.name}</h2>
+                </div>
+                <p className="mc-dark-gray text-xs mb-4">
+                  by <span className="mc-white font-bold">{addon.authors.map((a) => a.name).join(", ")}</span>
                 </p>
-                <div className="flex flex-wrap gap-2 mt-2">
-                  <span className="mc-category">{formatCount(addon.downloadCount)} downloads</span>
+                <div className="flex flex-wrap gap-2">
+                  <span className="mc-category py-1 px-3 bg-blue-900/30 border-blue-500/30 text-blue-300 font-bold uppercase tracking-wider" style={{ fontSize: 9 }}>
+                    {formatCount(addon.downloadCount)} DOWNLOADS
+                  </span>
                   {addon.categories.map((c) => (
-                    <span key={c.id} className="mc-category">{c.name}</span>
+                    <span key={c.id} className="mc-category py-1 px-3 bg-black/40 uppercase tracking-wider" style={{ fontSize: 9 }}>{c.name}</span>
                   ))}
                 </div>
               </div>
+              <div className="flex items-center justify-center sm:justify-end">
+                <button
+                  className={`mc-btn mc-btn-green text-sm px-10 py-3 w-full sm:w-auto font-bold tracking-widest ${!installing ? "mc-glint" : ""}`}
+                  disabled={installing || files.length === 0}
+                  onClick={() => setShowWorldPicker(true)}
+                >
+                  {installing ? "INSTALLING..." : "INSTALL TO WORLD"}
+                </button>
+              </div>
             </div>
 
-            <p className="mc-gray mt-4 p-2 bg-black/20 border-l-2 border-[#ffaa00]/50" style={{ fontSize: 11, lineHeight: 1.5 }}>
-              {addon.summary}
-            </p>
-
-            <div className="mt-4">
-              <button
-                className={`mc-btn mc-btn-green text-xs px-8 py-2 w-full sm:w-auto ${!installing ? "mc-glint" : ""}`}
-                disabled={installing || files.length === 0}
-                onClick={() => setShowWorldPicker(true)}
-              >
-                {installing ? "Installing..." : "Install to World"}
-              </button>
+            <div className="mt-6 p-4 bg-black/40 border-l-4 border-amber-500/50 backdrop-blur-sm">
+              <p className="mc-gray italic leading-relaxed font-sans" style={{ fontSize: 13 }}>
+                {addon.summary}
+              </p>
             </div>
           </div>
 

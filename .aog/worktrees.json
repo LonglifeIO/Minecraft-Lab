@@ -41,6 +41,13 @@
       "path": "/root/minecraftlab/.worktrees/agent-gemini-2dd7b9f3",
       "branch": "aog/gemini/2dd7b9f3",
       "createdAt": "2026-03-17T23:59:30.823Z"
+    },
+    {
+      "taskId": "e0698e74",
+      "agent": "gemini",
+      "path": "/root/minecraftlab/.worktrees/agent-gemini-e0698e74",
+      "branch": "aog/gemini/e0698e74",
+      "createdAt": "2026-03-18T12:23:42.055Z"
     }
   ]
 }

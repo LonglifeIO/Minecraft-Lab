@@ -135,28 +135,45 @@ export default function WorldPage() {
   return (
     <div className="min-h-screen p-4 sm:p-6 max-w-5xl mx-auto pb-20">
       {/* Title bar */}
-      <div className="mc-dark-panel flex items-center justify-between px-4 py-2 mb-4">
-        <div className="flex items-center gap-3">
-          <Link href="/"><button className="mc-btn text-xs px-2 py-0">&lt;</button></Link>
-          <span className="mc-title text-sm">{status?.worldName || id}</span>
+      <div className="mc-dark-panel flex items-center justify-between px-5 py-3 mb-6 border-b-2 border-black/20">
+        <div className="flex items-center gap-4">
+          <Link href="/"><button className="mc-btn text-xs px-3 py-1 font-bold">BACK</button></Link>
+          <div className="flex flex-col">
+            <span className="mc-title text-xl tracking-tight leading-none">{status?.worldName || id}</span>
+            <span className="mc-dark-gray text-[9px] uppercase tracking-widest mt-1">Instance Control Center</span>
+          </div>
         </div>
-        <span className={`mc-status ${online ? "mc-status-online" : "mc-status-offline"}`}>
-          <span className={online ? "mc-pulse" : ""}>&#x25CF;</span>
-          {online ? " Online" : " Offline"}
-        </span>
+        <div className="flex flex-col items-end gap-1">
+          <span className={`mc-status text-[10px] font-bold uppercase tracking-wider px-3 py-0.5 ${online ? "mc-status-online border-green-500/50" : "mc-status-offline border-red-500/50"}`}>
+            {online ? "Online" : "Offline"}
+          </span>
+          <span className="mc-dark-gray text-[8px] uppercase tracking-tighter opacity-50">{id}</span>
+        </div>
       </div>
 
       {/* Status bar */}
       {online && (
-        <div className="mc-dark-panel p-3 mb-4">
-          <div className="flex gap-6 text-xs mb-2">
-            <span><span className="mc-gray">Players: </span><span className="mc-green">{status?.players}<span className="mc-dark-gray">/{status?.maxPlayers}</span></span></span>
-            <span><span className="mc-gray">Mode: </span><span className="mc-aqua capitalize">{status?.gamemode}</span></span>
-            <span><span className="mc-gray">Difficulty: </span><span className="mc-gold capitalize">{status?.difficulty}</span></span>
-            <span><span className="mc-gray">Version: </span><span className="mc-white">{status?.version}</span></span>
+        <div className="mc-dark-panel p-4 mb-6 bg-gradient-to-r from-black/40 to-transparent">
+          <div className="flex flex-wrap gap-8 text-[11px] mb-4 uppercase tracking-wider font-bold">
+            <div className="flex flex-col">
+              <span className="mc-gray text-[9px] mb-0.5">Network Load</span>
+              <span className="mc-green text-sm">{status?.players}<span className="mc-dark-gray font-normal">/{status?.maxPlayers}</span></span>
+            </div>
+            <div className="flex flex-col">
+              <span className="mc-gray text-[9px] mb-0.5">Operation Mode</span>
+              <span className="mc-aqua text-sm capitalize">{status?.gamemode}</span>
+            </div>
+            <div className="flex flex-col">
+              <span className="mc-gray text-[9px] mb-0.5">Threat Level</span>
+              <span className="mc-gold text-sm capitalize">{status?.difficulty}</span>
+            </div>
+            <div className="flex flex-col">
+              <span className="mc-gray text-[9px] mb-0.5">Kernel Version</span>
+              <span className="mc-white text-sm">{status?.version}</span>
+            </div>
           </div>
-          <div className="mc-xp-bar">
-            <div className="mc-xp-fill" style={{ width: `${Math.max(((status?.players || 0) / (status?.maxPlayers || 20)) * 100, 2)}%` }} />
+          <div className="mc-xp-bar h-2 shadow-inner">
+            <div className="mc-xp-fill shadow-[0_0_8px_rgba(128,255,32,0.4)]" style={{ width: `${Math.max(((status?.players || 0) / (status?.maxPlayers || 20)) * 100, 2)}%` }} />
           </div>
         </div>
       )}
