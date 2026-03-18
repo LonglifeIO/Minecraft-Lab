@@ -289,7 +289,8 @@ export default function WorldPage() {
 
 function WorldAddons({ id, busy, setBusy }: { id: string; busy: string | null; setBusy: (v: string | null) => void }) {
   const { toast } = useToast();
-  const { data: addons, mutate } = useSWR<InstalledAddon[]>(`/api/servers/${id}/addons`, fetcher, { refreshInterval: 10000 });
+  const { data: addonsRaw, mutate } = useSWR(`/api/servers/${id}/addons`, fetcher, { refreshInterval: 10000 });
+  const addons: InstalledAddon[] = Array.isArray(addonsRaw) ? addonsRaw : [];
 
   async function handleToggle(addon: InstalledAddon) {
     setBusy(`toggle-${addon.uuid}`);

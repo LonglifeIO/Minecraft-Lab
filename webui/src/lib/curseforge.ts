@@ -4,8 +4,8 @@ const CURSEFORGE_API_BASE_URL = "https://api.curseforge.com";
 const CURSEFORGE_API_KEY = process.env.CURSEDFORGE_API || "";
 const RETRY_DELAY_MS = 1000;
 
-export const CURSEFORGE_GAME_ID = 432;
-export const DEFAULT_CLASS_ID = 4559; // mc-addons (Bedrock)
+export const CURSEFORGE_GAME_ID = 78022; // Minecraft Bedrock (not 432 = Java)
+export const DEFAULT_CLASS_ID = 4984;  // Addons class under Bedrock game
 
 export interface SearchParams {
   query?: string;

@@ -14,7 +14,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json();
-    const { modId, fileId, worldId, addonName } = body;
+    const { modId, fileId, fileUrl, worldId, addonName } = body;
 
     const worlds = await listWorlds();
     const world = worlds.find((w: any) => w.id === worldId);
@@ -23,7 +23,9 @@ export async function POST(req: NextRequest) {
 
     const properties = await bds.getProperties(server);
     const worldName = properties["level-name"] || "world";
-    const url = await getDownloadUrl(modId, fileId);
+    // Use URL from client (already has forgecdn.net fallback); only hit CF if not provided
+    const url = fileUrl || await getDownloadUrl(modId, fileId);
+    if (!url) return NextResponse.json({ error: "no download URL available for this file" }, { status: 422 });
     const result = await bds.installAddon(server, { url, worldName, modId, fileId, addonName });
 
     return NextResponse.json(result);

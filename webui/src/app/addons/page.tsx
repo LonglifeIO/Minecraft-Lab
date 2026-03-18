@@ -31,11 +31,32 @@ const SORT_OPTIONS = [
   { label: "Downloads", value: "6" },
 ];
 
-const CATEGORY_OPTIONS = [
+// classId options map to top-level Bedrock classes (gameId=78022)
+const CLASS_OPTIONS = [
+  { label: "Addons", value: "" },           // classId=4984 (default)
+  { label: "Maps", value: "6913" },
+  { label: "Texture Packs", value: "6929" },
+  { label: "Scripts", value: "6940" },
+  { label: "Skins", value: "6925" },
+];
+
+// Subcategories for Addons class (4984)
+const ADDON_CATEGORY_OPTIONS = [
   { label: "All", value: "" },
-  { label: "Worlds", value: "4560" },
-  { label: "Resource Packs", value: "4561" },
-  { label: "Scenarios", value: "4562" },
+  { label: "Weapons", value: "8834" },
+  { label: "Survival", value: "8831" },
+  { label: "Vanilla+", value: "8830" },
+  { label: "Magic", value: "8829" },
+  { label: "Fantasy", value: "8828" },
+  { label: "Roleplay", value: "8827" },
+  { label: "Technology", value: "8826" },
+  { label: "Horror", value: "8833" },
+  { label: "Maps", value: "4986" },
+  { label: "Multiplayer", value: "8835" },
+  { label: "Cosmetics", value: "8825" },
+  { label: "Food", value: "8836" },
+  { label: "Utility", value: "8832" },
+  { label: "Performance", value: "8837" },
 ];
 
 function formatCount(n: number): string {
@@ -60,14 +81,18 @@ export default function AddonsPage() {
   const [query, setQuery] = useState("");
   const [searchInput, setSearchInput] = useState("");
   const [sortField, setSortField] = useState("2");
-  const [categoryId, setCategoryId] = useState<string>("");
+  const [classId, setClassId] = useState<string>("");      // top-level class (Maps, Skins, etc.)
+  const [categoryId, setCategoryId] = useState<string>(""); // subcategory within Addons
   const [page, setPage] = useState(0);
   const pageSize = 20;
   const { isLiked, toggle, count } = useLikedAddons();
 
   const params = new URLSearchParams({ pageSize: String(pageSize), index: String(page * pageSize), sortField });
   if (query) params.set("q", query);
-  if (categoryId) params.set("categoryId", categoryId);
+  // classId overrides the default (4984 Addons) when user picks Maps/Skins/etc.
+  if (classId) params.set("classId", classId);
+  // categoryId is a subcategory filter (only meaningful within Addons class)
+  if (categoryId && !classId) params.set("categoryId", categoryId);
 
   const { data, error, isLoading } = useSWR<SearchResponse>(
     `/api/addons/search?${params.toString()}`,
@@ -119,6 +144,7 @@ export default function AddonsPage() {
           />
           <button type="submit" className="mc-btn text-xs px-4">Search</button>
         </form>
+        {/* Sort + Class on one row */}
         <div className="flex gap-2 items-center flex-wrap mb-2">
           <span className="mc-gray text-xs">Sort:</span>
           {SORT_OPTIONS.map((opt) => (
@@ -130,19 +156,32 @@ export default function AddonsPage() {
               {opt.label}
             </button>
           ))}
-        </div>
-        <div className="flex gap-2 items-center flex-wrap">
-          <span className="mc-gray text-xs">Type:</span>
-          {CATEGORY_OPTIONS.map((opt) => (
+          <span className="mc-dark-gray text-xs mx-1">|</span>
+          {CLASS_OPTIONS.map((opt) => (
             <button
               key={opt.label}
-              className={`mc-btn text-xs px-2 py-0 ${categoryId === opt.value ? "mc-btn-active" : ""}`}
-              onClick={() => { setCategoryId(opt.value); setPage(0); }}
+              className={`mc-btn text-xs px-2 py-0 ${classId === opt.value ? "mc-btn-active" : ""}`}
+              onClick={() => { setClassId(opt.value); setCategoryId(""); setPage(0); }}
             >
               {opt.label}
             </button>
           ))}
         </div>
+        {/* Category: dropdown, only shown for Addons class */}
+        {!classId && (
+          <div className="flex gap-2 items-center mt-2">
+            <span className="mc-gray text-xs flex-shrink-0">Category:</span>
+            <select
+              className="mc-input text-xs flex-1 max-w-[220px]"
+              value={categoryId}
+              onChange={(e) => { setCategoryId(e.target.value); setPage(0); }}
+            >
+              {ADDON_CATEGORY_OPTIONS.map((opt) => (
+                <option key={opt.label} value={opt.value}>{opt.label}</option>
+              ))}
+            </select>
+          </div>
+        )}
       </div>
 
       {/* Results — vertical cards with skeleton loading */}

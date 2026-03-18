@@ -8,6 +8,7 @@ A complete setup for running Minecraft Bedrock servers at home with:
 
 - **Per-world LXC containers** — each world runs in its own Proxmox container for independent backup/restore
 - **Web dashboard** — mobile-friendly admin UI for non-technical users (parents, moderators)
+- **CurseForge addon library** — browse, filter, and install 6,000+ Bedrock-native add-ons directly from the UI
 - **Realms-style settings** — game mode, difficulty, and game rule toggles that work just like Realms
 - **Player management** — allowlist, kick, per-player controls
 - **Backup system** — safe LevelDB backups using BDS save hold/query/resume protocol
@@ -46,6 +47,28 @@ Lightweight Python HTTP API that runs alongside each Bedrock Dedicated Server. C
 - `POST /allowlist/remove` — remove player
 - `POST /preset` — apply a game preset (kid_friendly, hard_survival, build_event, normal)
 - `POST /backup` — trigger safe world backup
+- `GET /addons` — list all installed packs (behavior + resource) on the server
+- `GET /addons/world?name=<world>` — list packs active in a specific world
+- `POST /addons/install` — download and install a `.mcpack`/`.mcaddon` from a URL into a world
+- `POST /addons/remove` — remove a pack by UUID
+- `POST /addons/toggle` — enable or disable a pack in a world without removing it
+
+### Add-on Library (`webui/src/app/addons/`)
+
+Integrated CurseForge add-on browser backed by the [Minecraft Bedrock game ID (78022)](https://www.curseforge.com/minecraft-bedrock) — exclusively Bedrock-native content.
+
+![Add-on Library](webui/public/addon-library-screenshot.png)
+
+**Features:**
+- Browse 6,000+ add-ons: Addons, Maps, Texture Packs, Scripts, Skins
+- Category filters: Weapons, Survival, Vanilla+, Magic, Fantasy, Roleplay, Technology, Horror, and more
+- Sort by: Popular, Updated, Name, Downloads
+- Install any add-on directly to a running world with one click
+- Save/heart add-ons to a personal liked list (localStorage)
+- Supports `.mcpack`, `.mcaddon`, and multi-pack `.zip` archives
+- Detects and rejects Java Edition content with a clear error message
+
+**Requires a CurseForge API key** — set `CURSEDFORGE_API=your_key` in `.env.local`.
 
 ### Web Dashboard (`webui/`)
 

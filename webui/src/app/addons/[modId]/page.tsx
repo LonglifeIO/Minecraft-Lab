@@ -77,7 +77,8 @@ export default function AddonDetailPage() {
 
   async function handleInstall(worldId: string, worldName: string) {
     const fileId = selectedFileId || files[0]?.id;
-    if (!fileId || !addon) return;
+    const file = files.find((f) => f.id === fileId) || files[0];
+    if (!file || !addon) return;
 
     setInstalling(true);
     setShowWorldPicker(false);
@@ -87,7 +88,7 @@ export default function AddonDetailPage() {
       const res = await fetch("/api/addons/install", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ modId: addon.id, fileId, worldId, addonName: addon.name }),
+        body: JSON.stringify({ modId: addon.id, fileId: file.id, fileUrl: file.downloadUrl, worldId, addonName: addon.name }),
       });
       const result = await res.json();
       if (result.success) {

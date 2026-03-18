@@ -440,9 +440,28 @@ def archive_has_manifest(zip_file):
         if not clean or clean.endswith("/"):
             continue
         parts = [part for part in clean.split("/") if part]
-        if parts and parts[-1] == "manifest.json" and len(parts) <= 2:
+        if parts and parts[-1] == "manifest.json":
             return True
     return False
+
+
+def archive_is_java_only(zip_file):
+    """Detect Java Edition packs/datapacks (no manifest.json but has Java-specific structure)."""
+    names = zip_file.namelist()
+    has_manifest = any(os.path.basename(n.rstrip("/")) == "manifest.json" for n in names)
+    if has_manifest:
+        return False
+    # Java datapack: data/ directory
+    has_data_dir = any(n.startswith("data/") for n in names)
+    # Java resource pack: assets/ directory or pack.mcmeta
+    has_assets_dir = any(n.startswith("assets/") for n in names)
+    has_pack_mcmeta = any(os.path.basename(n.rstrip("/")) == "pack.mcmeta" for n in names)
+    return has_data_dir or has_assets_dir or has_pack_mcmeta
+
+
+def _is_zip_a_pack(zip_file):
+    """Check if an open ZipFile contains a manifest.json (is a Bedrock pack)."""
+    return any(os.path.basename(n.rstrip("/")) == "manifest.json" for n in zip_file.namelist())
 
 
 def extract_pack_archives(archive_path, temp_dir):
@@ -450,19 +469,40 @@ def extract_pack_archives(archive_path, temp_dir):
     try:
         with zipfile.ZipFile(archive_path, "r") as zip_file:
             names = zip_file.namelist()
-            has_inner_packs = any(name.lower().endswith(".mcpack") for name in names)
-            if has_inner_packs:
-                for name in names:
-                    if not name.lower().endswith(".mcpack"):
-                        continue
+            # Collect candidate inner archives: .mcpack / .mcaddon and any .zip inside
+            inner_pack_names = [n for n in names if n.lower().endswith((".mcpack", ".mcaddon"))]
+            inner_zip_names = [n for n in names if n.lower().endswith(".zip") and not n.lower().endswith((".mcpack", ".mcaddon"))]
+
+            if inner_pack_names:
+                # Standard .mcaddon: outer zip holds .mcpack / .mcaddon entries
+                for name in inner_pack_names:
                     target = os.path.join(temp_dir, os.path.basename(name))
                     with zip_file.open(name) as src, open(target, "wb") as dst:
                         shutil.copyfileobj(src, dst)
                     pack_archives.append(target)
             elif archive_has_manifest(zip_file):
+                # Outer zip IS the pack (manifest.json somewhere inside)
                 pack_archives.append(archive_path)
+            elif inner_zip_names:
+                # Some authors bundle inner .zip files — check each for a manifest
+                found_any = False
+                for name in inner_zip_names:
+                    target = os.path.join(temp_dir, os.path.basename(name))
+                    with zip_file.open(name) as src, open(target, "wb") as dst:
+                        shutil.copyfileobj(src, dst)
+                    try:
+                        with zipfile.ZipFile(target, "r") as inner_zip:
+                            if _is_zip_a_pack(inner_zip):
+                                pack_archives.append(target)
+                                found_any = True
+                    except zipfile.BadZipFile:
+                        pass
+                if not found_any:
+                    raise ValueError("unsupported addon archive format — no manifest.json found in any inner archive")
+            elif archive_is_java_only(zip_file):
+                raise ValueError("this is a Java Edition addon and cannot be installed on Bedrock servers")
             else:
-                raise ValueError("unsupported addon archive format")
+                raise ValueError("unsupported addon archive format — no manifest.json found")
     except zipfile.BadZipFile:
         raise ValueError("invalid zip archive")
 
