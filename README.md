@@ -160,3 +160,7 @@ Recommended specs:
 ## License
 
 MIT
+
+---
+
+*MinecraftLab is an independent project and is not affiliated with, endorsed by, or associated with Mojang Studios or Microsoft. Minecraft is a trademark of Mojang Studios.*
