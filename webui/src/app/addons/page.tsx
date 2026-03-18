@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import useSWR from "swr";
@@ -107,73 +107,69 @@ export default function AddonsPage() {
         </div>
       </div>
 
-      {/* Results */}
-      {isLoading && <p className="mc-gray text-xs py-8 text-center">Searching CurseForge...</p>}
-      {error && !isLoading && <p className="mc-red text-xs py-8 text-center">Failed to load add-ons</p>}
-
-      {data && data.results.length === 0 && (
-        <div className="mc-dark-panel p-6 text-center">
-          <p className="mc-gray text-xs">No add-ons found. Try a different search.</p>
-        </div>
-      )}
-
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
-        {data?.results.map((addon) => (
-          <Link key={addon.id} href={`/addons/${addon.id}`}>
-            <div className="mc-dark-panel p-3 mc-lift h-full cursor-pointer">
-              <div className="flex gap-3">
-                {addon.thumbUrl ? (
-                  <img
-                    src={addon.thumbUrl}
-                    alt=""
-                    className="w-12 h-12 flex-shrink-0"
-                    style={{ imageRendering: "pixelated", border: "2px solid #5a5b5c" }}
-                  />
-                ) : (
-                  <div
-                    className="w-12 h-12 flex-shrink-0 flex items-center justify-center"
-                    style={{ background: "#3a3a3a", border: "2px solid #5a5b5c" }}
-                  >
-                    <span className="mc-gold text-lg">{addon.name.charAt(0)}</span>
-                  </div>
-                )}
-                <div className="flex-1 min-w-0">
-                  <div className="mc-white text-xs font-bold truncate">{addon.name}</div>
-                  <div className="mc-gray" style={{ fontSize: 10 }}>
-                    by {addon.authors.map((a) => a.name).join(", ") || "Unknown"}
-                  </div>
-                  <div className="mc-dark-gray mt-1 line-clamp-2" style={{ fontSize: 10, lineHeight: 1.4 }}>
-                    {addon.summary}
-                  </div>
-                </div>
-              </div>
-              <div className="flex justify-between mt-2 text-xs">
-                <span className="mc-aqua">{formatCount(addon.downloadCount)} downloads</span>
-                <span className="mc-dark-gray">{timeAgo(addon.dateModified)}</span>
+      {/* Results — inventory grid with skeleton loading */}
+      <div className="mc-inventory-grid mb-4">
+        {isLoading ? (
+          Array.from({ length: 6 }).map((_, i) => (
+            <div key={i} className="mc-window-inner flex gap-3 opacity-50">
+              <div className="mc-item-slot mc-skeleton" />
+              <div className="flex-1 space-y-2 py-1">
+                <div className="h-3 w-2/3 mc-skeleton" />
+                <div className="h-2 w-full mc-skeleton" />
+                <div className="h-2 w-1/2 mc-skeleton" />
               </div>
             </div>
-          </Link>
-        ))}
+          ))
+        ) : error ? (
+          <div className="col-span-full p-8 text-center">
+            <p className="mc-red text-xs">Failed to load add-ons</p>
+          </div>
+        ) : data && data.results.length === 0 ? (
+          <div className="col-span-full p-8 text-center">
+            <p className="mc-gray text-xs">No add-ons found. Try a different search.</p>
+          </div>
+        ) : (
+          data?.results.map((addon) => (
+            <Link key={addon.id} href={`/addons/${addon.id}`}>
+              <div className="mc-window-inner mc-lift h-full cursor-pointer flex flex-col justify-between hover:bg-[#999] transition-colors">
+                <div className="flex gap-3">
+                  <div className="mc-item-slot">
+                    {addon.thumbUrl ? (
+                      <img src={addon.thumbUrl} alt="" />
+                    ) : (
+                      <span className="mc-gold text-lg">{addon.name.charAt(0)}</span>
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="mc-white text-xs font-bold truncate">{addon.name}</div>
+                    <div className="mc-dark-gray" style={{ fontSize: 9 }}>
+                      by <span className="mc-white">{addon.authors.map((a) => a.name).join(", ") || "Unknown"}</span>
+                    </div>
+                    <div className="mc-gray mt-1 line-clamp-2" style={{ fontSize: 10, lineHeight: 1.3 }}>
+                      {addon.summary}
+                    </div>
+                  </div>
+                </div>
+                <div className="flex justify-between items-end mt-3 border-t border-black/10 pt-2">
+                  <span className="mc-aqua" style={{ fontSize: 10 }}>{formatCount(addon.downloadCount)} dl</span>
+                  <span className="mc-dark-gray" style={{ fontSize: 9 }}>{timeAgo(addon.dateModified)}</span>
+                </div>
+              </div>
+            </Link>
+          ))
+        )}
       </div>
 
       {/* Pagination */}
       {totalPages > 1 && (
         <div className="flex justify-center gap-2">
-          <button
-            className="mc-btn text-xs px-3"
-            disabled={page === 0}
-            onClick={() => setPage(page - 1)}
-          >
+          <button className="mc-btn text-xs px-3" disabled={page === 0} onClick={() => setPage(page - 1)}>
             &lt; Prev
           </button>
           <span className="mc-gray text-xs flex items-center">
             Page {page + 1} of {totalPages}
           </span>
-          <button
-            className="mc-btn text-xs px-3"
-            disabled={page >= totalPages - 1}
-            onClick={() => setPage(page + 1)}
-          >
+          <button className="mc-btn text-xs px-3" disabled={page >= totalPages - 1} onClick={() => setPage(page + 1)}>
             Next &gt;
           </button>
         </div>

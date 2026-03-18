@@ -315,57 +315,70 @@ function WorldAddons({ id, busy, setBusy }: { id: string; busy: string | null; s
   }
 
   return (
-    <div className="mc-dark-panel mb-4">
-      <div className="p-3 pb-1 flex items-center justify-between">
-        <div className="mc-section">Installed Add-ons</div>
+    <div className="mc-dark-panel mb-4 overflow-hidden">
+      <div className="p-3 pb-2 flex items-center justify-between border-b border-black/20">
+        <div className="mc-section" style={{ marginBottom: 0 }}>Installed Add-ons</div>
         <Link href="/addons">
-          <button className="mc-btn mc-btn-green text-xs px-2 py-0">Browse Add-ons</button>
+          <button className="mc-btn mc-btn-green text-xs px-3 py-1">Browse Add-ons</button>
         </Link>
       </div>
 
-      {(!addons || addons.length === 0) && (
-        <p className="mc-dark-gray text-xs px-3 pb-3">No add-ons installed. Browse the library to get started.</p>
-      )}
+      <div className="divide-y divide-black/10">
+        {(!addons || addons.length === 0) && (
+          <p className="mc-dark-gray text-xs p-4 text-center">No add-ons installed. Browse the library to get started.</p>
+        )}
 
-      {addons?.map((addon) => (
-        <div key={addon.uuid} className="mc-row flex items-center justify-between px-3 py-2.5">
-          <div className="flex items-center gap-3 flex-1 min-w-0">
-            <div
-              className="w-8 h-8 flex-shrink-0 flex items-center justify-center"
-              style={{
-                background: addon.packType === "behavior" ? "#2a4a2a" : "#2a2a4a",
-                border: `2px solid ${addon.packType === "behavior" ? "#4a8a4a" : "#4a4a8a"}`,
-              }}
-            >
-              <span style={{ fontSize: 10, color: addon.packType === "behavior" ? "var(--mc-green)" : "var(--mc-aqua)" }}>
-                {addon.packType === "behavior" ? "BP" : "RP"}
-              </span>
-            </div>
-            <div className="min-w-0">
-              <div className="mc-white text-xs truncate">{addon.name || addon.uuid.slice(0, 8)}</div>
-              <div className="mc-dark-gray" style={{ fontSize: 10 }}>
-                v{(addon.version || []).join(".")} &middot; {addon.packType === "behavior" ? "Behavior Pack" : "Resource Pack"}
+        {addons?.map((addon) => (
+          <div key={addon.uuid} className="mc-row flex items-center justify-between px-3 py-3">
+            <div className="flex items-center gap-3 flex-1 min-w-0">
+              <div
+                className={`mc-item-slot-sm ${addon.enabled ? "mc-glint" : ""}`}
+                style={{
+                  background: addon.packType === "behavior" ? "#2a4a2a" : "#2a2a4a",
+                  borderColor: addon.enabled
+                    ? (addon.packType === "behavior" ? "#5a9e44 #2e5a22 #2e5a22 #5a9e44" : "#5a8a9e #2e4a5a #2e4a5a #5a8a9e")
+                    : "#373737 #ffffff #ffffff #373737",
+                }}
+              >
+                <span className="font-bold" style={{ fontSize: 10, color: addon.packType === "behavior" ? "var(--mc-green)" : "var(--mc-aqua)" }}>
+                  {addon.packType === "behavior" ? "BP" : "RP"}
+                </span>
+              </div>
+              <div className="min-w-0">
+                <div className={`text-xs truncate font-bold ${addon.enabled ? "mc-white" : "mc-dark-gray"}`}>
+                  {addon.name || addon.uuid.slice(0, 8)}
+                </div>
+                <div className="mc-dark-gray flex items-center gap-2" style={{ fontSize: 9 }}>
+                  <span className={addon.packType === "behavior" ? "mc-green" : "mc-aqua"} style={{ fontSize: 8 }}>
+                    {addon.packType === "behavior" ? "BEHAVIOR" : "RESOURCE"}
+                  </span>
+                  <span>&middot;</span>
+                  <span>v{(addon.version || []).join(".")}</span>
+                </div>
               </div>
             </div>
+            <div className="flex items-center gap-4 flex-shrink-0 ml-2">
+              <div className="flex flex-col items-end gap-1">
+                <span className="mc-dark-gray" style={{ fontSize: 8 }}>{addon.enabled ? "ENABLED" : "DISABLED"}</span>
+                <button
+                  onClick={() => handleToggle(addon)}
+                  disabled={busy !== null}
+                  className={`mc-toggle ${addon.enabled ? "mc-toggle-on" : ""}`}
+                >
+                  <div className="mc-toggle-knob" />
+                </button>
+              </div>
+              <button
+                className="mc-btn mc-btn-red text-xs px-2 py-0 h-8 min-w-[32px]"
+                onClick={() => handleRemove(addon)}
+                disabled={busy !== null}
+              >
+                {busy === `remove-${addon.uuid}` ? "..." : "X"}
+              </button>
+            </div>
           </div>
-          <div className="flex items-center gap-2 flex-shrink-0">
-            <button
-              onClick={() => handleToggle(addon)}
-              disabled={busy !== null}
-              className={`mc-toggle ${addon.enabled ? "mc-toggle-on" : ""}`}
-            >
-              <div className="mc-toggle-knob" />
-            </button>
-            <button
-              className="mc-btn mc-btn-red text-xs px-2 py-0"
-              onClick={() => handleRemove(addon)}
-              disabled={busy !== null}
-            >
-              {busy === `remove-${addon.uuid}` ? "..." : "X"}
-            </button>
-          </div>
-        </div>
-      ))}
+        ))}
+      </div>
     </div>
   );
 }

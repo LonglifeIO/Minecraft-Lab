@@ -347,6 +347,107 @@ body {
   box-shadow: 6px 6px 0 rgba(0,0,0,0.3);
 }
 
+/* ========== ITEM SLOT (Inventory square) ========== */
+.mc-item-slot {
+  width: 48px;
+  height: 48px;
+  background-color: #8b8b8b;
+  border: 2px solid;
+  border-color: #373737 #ffffff #ffffff #373737;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  position: relative;
+  overflow: hidden;
+}
+.mc-item-slot img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  image-rendering: pixelated;
+}
+.mc-item-slot-sm {
+  width: 36px;
+  height: 36px;
+  border-width: 2px;
+}
+
+/* ========== ENCHANTMENT GLINT ========== */
+.mc-glint {
+  position: relative;
+  overflow: hidden;
+}
+.mc-glint::after {
+  content: '';
+  position: absolute;
+  inset: -100%;
+  background: linear-gradient(
+    115deg,
+    transparent 40%,
+    rgba(160, 200, 255, 0.2) 45%,
+    rgba(160, 200, 255, 0.4) 50%,
+    rgba(160, 200, 255, 0.2) 55%,
+    transparent 60%
+  );
+  animation: enchant-glint 4s linear infinite;
+  pointer-events: none;
+  z-index: 2;
+}
+
+/* ========== SKELETON / SHIMMER ========== */
+@keyframes mc-shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+.mc-skeleton {
+  background: #3a3a3a;
+  background-image: linear-gradient(90deg, #3a3a3a 0px, #4a4a4a 40px, #3a3a3a 80px);
+  background-size: 200% 100%;
+  animation: mc-shimmer 2s infinite linear;
+}
+
+/* ========== BADGE / CATEGORY ========== */
+.mc-category {
+  font-size: 10px;
+  background: #2a2a2a;
+  border: 1px solid #555;
+  padding: 1px 6px;
+  color: var(--mc-gold);
+  text-shadow: 1px 1px 0 #000;
+}
+
+/* ========== INVENTORY GRID ========== */
+.mc-inventory-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 8px;
+  background: #8b8b8b;
+  border: 2px solid;
+  border-color: #373737 #ffffff #ffffff #373737;
+  padding: 8px;
+}
+
+/* ========== ADDON DESCRIPTION CONTENT ========== */
+.mc-description {
+  font-family: 'Silkscreen', monospace;
+  font-size: 11px;
+  color: var(--mc-gray);
+  line-height: 1.6;
+}
+.mc-description h1, .mc-description h2, .mc-description h3 {
+  color: var(--mc-gold);
+  margin-top: 12px;
+  margin-bottom: 6px;
+  font-size: 12px;
+  text-transform: uppercase;
+}
+.mc-description p { margin-bottom: 8px; }
+.mc-description ul, .mc-description ol { margin-left: 16px; margin-bottom: 8px; }
+.mc-description li { margin-bottom: 2px; }
+.mc-description a { color: var(--mc-aqua); text-decoration: underline; }
+.mc-description img { border: 2px solid #555; margin: 8px 0; max-width: 100%; }
+
 /* ========== PLAYER AVATAR ========== */
 .mc-avatar {
   width: 32px;

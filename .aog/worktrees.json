@@ -1,0 +1,46 @@
+{
+  "worktrees": [
+    {
+      "taskId": "07d72936",
+      "agent": "codex",
+      "path": "/root/minecraftlab/.worktrees/agent-codex-07d72936",
+      "branch": "aog/codex/07d72936",
+      "createdAt": "2026-03-17T23:26:02.104Z"
+    },
+    {
+      "taskId": "7c9ed6f1",
+      "agent": "codex",
+      "path": "/root/minecraftlab/.worktrees/agent-codex-7c9ed6f1",
+      "branch": "aog/codex/7c9ed6f1",
+      "createdAt": "2026-03-17T23:30:22.502Z"
+    },
+    {
+      "taskId": "bbbd59ad",
+      "agent": "codex",
+      "path": "/root/minecraftlab/.worktrees/agent-codex-bbbd59ad",
+      "branch": "aog/codex/bbbd59ad",
+      "createdAt": "2026-03-17T23:37:56.614Z"
+    },
+    {
+      "taskId": "b58c302a",
+      "agent": "codex",
+      "path": "/root/minecraftlab/.worktrees/agent-codex-b58c302a",
+      "branch": "aog/codex/b58c302a",
+      "createdAt": "2026-03-17T23:42:10.864Z"
+    },
+    {
+      "taskId": "9b746122",
+      "agent": "codex",
+      "path": "/root/minecraftlab/.worktrees/agent-codex-9b746122",
+      "branch": "aog/codex/9b746122",
+      "createdAt": "2026-03-17T23:46:46.305Z"
+    },
+    {
+      "taskId": "2dd7b9f3",
+      "agent": "gemini",
+      "path": "/root/minecraftlab/.worktrees/agent-gemini-2dd7b9f3",
+      "branch": "aog/gemini/2dd7b9f3",
+      "createdAt": "2026-03-17T23:59:30.823Z"
+    }
+  ]
+}
