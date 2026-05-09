@@ -28,6 +28,11 @@ migrate-ips.sh
 scp-*.md
 notes-*.md
 *.local.md
+# Player-facing setup docs — kept private since they bake in the deployment's
+# public IP / port. Each operator should keep their own copy locally.
+docs/hal-ps5-setup.md
+docs/*-ps5-setup.md
+docs/*-setup.local.md
 
 # --- World saves & binaries (NEVER commit) ---
 REALMS/
