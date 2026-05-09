@@ -5,6 +5,7 @@ Runs in each BDS container alongside the game server.
 
 from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
 import fcntl
+import threading
 import json
 import subprocess
 import os
@@ -30,9 +31,14 @@ RESOURCE_PACKS_DIR = os.path.join(BDS_PATH, "resource_packs")
 WORLDS_DIR = os.path.join(BDS_PATH, "worlds")
 VALID_KNOWN_PACKS_FILE = os.path.join(BDS_PATH, "valid_known_packs.json")
 INSTALLED_ADDONS_FILE = os.path.join(BDS_PATH, "installed_addons.json")
+PERMISSIONS_FILE = os.path.join(BDS_PATH, "permissions.json")
 
 os.makedirs(os.path.join(BDS_PATH, "logs"), exist_ok=True)
 os.makedirs(BACKUP_DIR, exist_ok=True)
+
+# Prevents concurrent screen stuffing from interleaving output in the BDS log,
+# which causes gamerule queries to return incorrect values.
+_screen_lock = threading.Lock()
 
 
 def run(cmd, timeout=10):
@@ -48,28 +54,52 @@ def is_running():
     return code == 0
 
 
+# Allowlist for characters permitted in BDS console commands.
+# Rejects anything outside this set to prevent shell injection via screen.
+_CMD_ALLOWLIST = re.compile(r'^[a-zA-Z0-9 _\-\.,:/@"\'\\[\]{}=+!?#\(\)]*$')
+
+def sanitize_command(cmd: str) -> str:
+    """Raise ValueError if cmd contains characters outside the safe allowlist."""
+    if not _CMD_ALLOWLIST.match(cmd):
+        raise ValueError(f"command contains disallowed characters: {cmd!r}")
+    return cmd
+
+
 def screen_cmd(cmd):
+    import shlex
     escaped = cmd.replace("\\", "\\\\").replace('"', '\\"')
-    run(f'sudo -u {MC_USER} screen -p 0 -S {SCREEN_NAME} -X stuff "{escaped}\\n"')
+    with _screen_lock:
+        subprocess.run(
+            ["sudo", "-u", MC_USER, "screen", "-p", "0", "-S", SCREEN_NAME, "-X", "stuff", f"{escaped}\n"],
+            capture_output=True, timeout=5
+        )
 
 
 def send_and_capture(cmd, wait=1.0):
     if not os.path.exists(LOG_FILE):
-        screen_cmd(cmd)
+        with _screen_lock:
+            subprocess.run(
+                ["sudo", "-u", MC_USER, "screen", "-p", "0", "-S", SCREEN_NAME, "-X", "stuff", f"{cmd}\n"],
+                capture_output=True, timeout=5
+            )
+            time.sleep(wait)
+        return ""
+    with _screen_lock:
+        try:
+            size_before = os.path.getsize(LOG_FILE)
+        except:
+            size_before = 0
+        subprocess.run(
+            ["sudo", "-u", MC_USER, "screen", "-p", "0", "-S", SCREEN_NAME, "-X", "stuff", f"{cmd}\n"],
+            capture_output=True, timeout=5
+        )
         time.sleep(wait)
-        return ""
-    try:
-        size_before = os.path.getsize(LOG_FILE)
-    except:
-        size_before = 0
-    screen_cmd(cmd)
-    time.sleep(wait)
-    try:
-        with open(LOG_FILE, "r") as f:
-            f.seek(size_before)
-            return f.read().strip()
-    except:
-        return ""
+        try:
+            with open(LOG_FILE, "r") as f:
+                f.seek(size_before)
+                return f.read().strip()
+        except:
+            return ""
 
 
 def strip_log_prefix(line):
@@ -90,12 +120,54 @@ def read_properties():
     return props
 
 
+def write_property(key, value):
+    """Update a single key in server.properties."""
+    props_path = os.path.join(BDS_PATH, "server.properties")
+    try:
+        with open(props_path) as f:
+            lines = f.readlines()
+        new_lines = []
+        found = False
+        for line in lines:
+            if line.strip().startswith(f"{key}="):
+                new_lines.append(f"{key}={value}\n")
+                found = True
+            else:
+                new_lines.append(line)
+        if not found:
+            new_lines.append(f"{key}={value}\n")
+        with open(props_path, "w") as f:
+            f.writelines(new_lines)
+    except Exception as e:
+        raise ValueError(f"failed to write server.properties: {e}")
+
+
+def restart_bds():
+    """Stop and restart the bedrock service."""
+    subprocess.run(["systemctl", "restart", "bedrock"], timeout=60)
+
+
 def read_allowlist():
     try:
         with open(os.path.join(BDS_PATH, "allowlist.json")) as f:
             return json.load(f)
     except:
         return []
+
+
+def get_xuid_for_name(name):
+    """Scan server log for the most recent xuid seen for a given player name."""
+    xuid = None
+    try:
+        with open(LOG_FILE) as f:
+            for line in f:
+                if f"xuid: " in line and name in line:
+                    parts = line.split("xuid: ")
+                    if len(parts) > 1:
+                        xuid = parts[1].split(",")[0].split()[0].strip()
+    except:
+        pass
+    return xuid
 
 
 def write_allowlist(data):
@@ -117,7 +189,13 @@ def get_version():
     return "unknown"
 
 
+_status_cache = {"data": None, "time": 0}
+_STATUS_TTL = 2
+
 def get_status():
+    now = time.time()
+    if _status_cache["data"] is not None and (now - _status_cache["time"]) < _STATUS_TTL:
+        return _status_cache["data"]
     running = is_running()
     props = read_properties()
     result = {
@@ -149,6 +227,8 @@ def get_status():
                         ]
                 break
 
+    _status_cache["data"] = result
+    _status_cache["time"] = time.time()
     return result
 
 
@@ -265,8 +345,11 @@ def sanitize_folder_name(name, fallback):
     return cleaned or fallback
 
 
+_WORLD_NAME_RE = re.compile(r'^[a-zA-Z0-9][a-zA-Z0-9 _\-\.]{0,63}$')
+
 def validate_world_name(world_name):
-    if not world_name or "/" in world_name or "\\" in world_name or world_name in (".", ".."):
+    # Strict allowlist: must start with alphanumeric, max 64 chars, no path traversal
+    if not world_name or not _WORLD_NAME_RE.match(world_name):
         raise ValueError("invalid world name")
     world_dir = os.path.join(WORLDS_DIR, world_name)
     if not os.path.isdir(world_dir):
@@ -480,10 +563,29 @@ def extract_pack_archives(archive_path, temp_dir):
                     with zip_file.open(name) as src, open(target, "wb") as dst:
                         shutil.copyfileobj(src, dst)
                     pack_archives.append(target)
-            elif archive_has_manifest(zip_file):
+            else:
+                # Check for multi-pack subdirectory layout (e.g. BP/ and RP/ at top level)
+                subdir_manifests = {}
+                for name in names:
+                    parts = [p for p in name.split("/") if p]
+                    if len(parts) == 2 and parts[1] == "manifest.json":
+                        subdir_manifests[parts[0]] = name
+                if len(subdir_manifests) > 1:
+                    for subdir in subdir_manifests:
+                        target = os.path.join(temp_dir, f"{subdir}.zip")
+                        with zipfile.ZipFile(target, "w", zipfile.ZIP_DEFLATED) as sub_zip:
+                            for name in names:
+                                parts = [p for p in name.split("/") if p]
+                                if parts and parts[0] == subdir:
+                                    inner_name = "/".join(parts[1:])
+                                    if inner_name:
+                                        sub_zip.writestr(inner_name, zip_file.read(name))
+                        pack_archives.append(target)
+
+            if not pack_archives and archive_has_manifest(zip_file):
                 # Outer zip IS the pack (manifest.json somewhere inside)
                 pack_archives.append(archive_path)
-            elif inner_zip_names:
+            elif not pack_archives and inner_zip_names:
                 # Some authors bundle inner .zip files — check each for a manifest
                 found_any = False
                 for name in inner_zip_names:
@@ -499,9 +601,9 @@ def extract_pack_archives(archive_path, temp_dir):
                         pass
                 if not found_any:
                     raise ValueError("unsupported addon archive format — no manifest.json found in any inner archive")
-            elif archive_is_java_only(zip_file):
+            elif not pack_archives and archive_is_java_only(zip_file):
                 raise ValueError("this is a Java Edition addon and cannot be installed on Bedrock servers")
-            else:
+            elif not pack_archives:
                 raise ValueError("unsupported addon archive format — no manifest.json found")
     except zipfile.BadZipFile:
         raise ValueError("invalid zip archive")
@@ -738,6 +840,64 @@ def toggle_addon(pack_uuid, world_name, enabled):
     return addon
 
 
+def import_world(url, world_name):
+    """Download a .mcworld/.zip map pack and extract it as a new BDS world."""
+    if not world_name or "/" in world_name or "\\" in world_name or world_name in (".", ".."):
+        raise ValueError("invalid world name")
+    dest_dir = os.path.join(WORLDS_DIR, world_name)
+
+    # Stop BDS so it doesn't race to generate/hold the world directory
+    subprocess.run(["systemctl", "stop", "bedrock"], timeout=30)
+    time.sleep(2)
+
+    # Remove any world BDS may have already generated under this name
+    if os.path.exists(dest_dir):
+        shutil.rmtree(dest_dir)
+
+    with tempfile.TemporaryDirectory() as temp_dir:
+        archive_path = os.path.join(temp_dir, "map.zip")
+        request = urllib.request.Request(url, headers={"User-Agent": "bds-api"})
+        try:
+            with urllib.request.urlopen(request, timeout=120) as response, open(archive_path, "wb") as f:
+                shutil.copyfileobj(response, f)
+        except Exception as e:
+            raise ValueError(f"download failed: {e}")
+
+        try:
+            with zipfile.ZipFile(archive_path, "r") as zf:
+                names = zf.namelist()
+                # Detect if content is inside a single top-level folder
+                top_dirs = set()
+                for n in names:
+                    parts = [p for p in n.split("/") if p]
+                    if parts:
+                        top_dirs.add(parts[0])
+                extract_dir = os.path.join(temp_dir, "extracted")
+                os.makedirs(extract_dir)
+                safe_extract_zip(zf, extract_dir)
+        except zipfile.BadZipFile:
+            raise ValueError("invalid archive")
+
+        # Find the actual world root: either extracted/ directly or extracted/<single_subdir>/
+        world_root = extract_dir
+        entries = [e for e in os.scandir(extract_dir) if e.is_dir()]
+        if len(entries) == 1 and not os.path.exists(os.path.join(extract_dir, "level.dat")):
+            world_root = entries[0].path
+
+        os.makedirs(WORLDS_DIR, exist_ok=True)
+        shutil.copytree(world_root, dest_dir)
+
+        # Keep level.dat from the export — it contains the world seed needed for
+        # correct chunk generation. Removing it causes terrain mismatches/holes.
+
+        chown_recursive(dest_dir)
+
+    # Restart BDS now that the world is in place
+    subprocess.run(["systemctl", "start", "bedrock"], timeout=30)
+
+    return {"success": True, "worldName": world_name}
+
+
 PRESETS = {
     "kid_friendly": [
         "difficulty peaceful",
@@ -819,6 +979,13 @@ class Handler(BaseHTTPRequestHandler):
             self._json(200, read_properties())
         elif p == "/backups":
             self._json(200, list_backups())
+        elif p == "/permissions":
+            try:
+                with open(PERMISSIONS_FILE) as f:
+                    self._json(200, json.load(f))
+            except (FileNotFoundError, json.JSONDecodeError):
+                self._json(200, [])
+
         elif p == "/addons":
             self._json(200, list_installed_addons())
         elif p == "/addons/world":
@@ -848,11 +1015,31 @@ class Handler(BaseHTTPRequestHandler):
             if not cmd:
                 self._json(400, {"error": "missing command"})
                 return
+            try:
+                sanitize_command(cmd)  # reject shell metacharacters
+            except ValueError as e:
+                self._json(400, {"error": str(e)})
+                return
             if not is_running():
                 self._json(400, {"error": "server not running"})
                 return
             output = send_and_capture(cmd)
             self._json(200, {"output": output})
+
+        elif p == "/gamemode":
+            mode = body.get("mode", "").strip()
+            if mode not in ("survival", "creative", "adventure"):
+                self._json(400, {"error": "invalid gamemode"}); return
+            write_property("gamemode", mode)
+            write_property("force-gamemode", "true")
+            self._json(200, {"success": True, "gamemode": mode})
+
+        elif p == "/difficulty":
+            level = body.get("level", "").strip()
+            if level not in ("peaceful", "easy", "normal", "hard"):
+                self._json(400, {"error": "invalid difficulty"}); return
+            write_property("difficulty", level)
+            self._json(200, {"success": True, "difficulty": level})
 
         elif p == "/power":
             action = body.get("action", "")
@@ -879,6 +1066,30 @@ class Handler(BaseHTTPRequestHandler):
                 self._json(200, {"success": is_running()})
             else:
                 self._json(400, {"error": "invalid action: start, stop, or restart"})
+
+        elif p == "/permissions/set":
+            name = body.get("name", "").strip()
+            permission = body.get("permission", "").strip()
+            if not name or permission not in ("visitor", "member", "operator"):
+                self._json(400, {"error": "invalid name or permission"})
+                return
+            xuid = get_xuid_for_name(name)
+            if not xuid:
+                self._json(404, {"error": f"xuid not found for {name} — player must have joined at least once"})
+                return
+            try:
+                with open(PERMISSIONS_FILE) as f:
+                    perms = json.load(f)
+            except FileNotFoundError:
+                perms = []
+            perms = [e for e in perms if e.get("xuid") != xuid]
+            if permission != "member":
+                perms.append({"permission": permission, "xuid": xuid})
+            with open(PERMISSIONS_FILE, "w") as f:
+                json.dump(perms, f, indent=4)
+            # Reload permissions live so it takes effect without restart
+            screen_cmd("reloadpermissions")
+            self._json(200, {"success": True})
 
         elif p == "/allowlist/add":
             name = body.get("name", "").strip()
@@ -928,6 +1139,23 @@ class Handler(BaseHTTPRequestHandler):
         elif p == "/backup":
             result = do_backup()
             self._json(200 if result.get("success") else 500, result)
+
+        elif p == "/worlds/import":
+            url = str(body.get("url") or "").strip()
+            world_name = str(body.get("worldName") or "").strip()
+            if not url:
+                self._json(400, {"error": "missing url"})
+                return
+            if not world_name:
+                self._json(400, {"error": "missing worldName"})
+                return
+            try:
+                result = import_world(url, world_name)
+                self._json(200, result)
+            except ValueError as e:
+                self._json(400, {"error": str(e)})
+            except Exception as e:
+                self._json(500, {"error": str(e)})
 
         elif p == "/addons/install":
             url = str(body.get("url") or "").strip()

@@ -22,10 +22,10 @@ export async function listWorlds() {
   }
 }
 
-export async function createWorld(name: string) {
+export async function createWorld(name: string, seed?: string) {
   return hostRequest("/worlds", {
     method: "POST",
-    body: JSON.stringify({ name }),
+    body: JSON.stringify({ name, ...(seed ? { seed } : {}) }),
   });
 }
 
@@ -39,4 +39,26 @@ export async function startWorldContainer(id: string) {
 
 export async function stopWorldContainer(id: string) {
   return hostRequest(`/worlds/${id}/stop`, { method: "POST" });
+}
+
+export async function setWorldImporting(id: string, importing: boolean) {
+  return hostRequest(`/worlds/${id}/importing`, {
+    method: "POST",
+    body: JSON.stringify({ importing }),
+  });
+}
+
+export async function checkUpdates() {
+  return hostRequest("/updates/check");
+}
+
+export async function applyUpdates(force = false) {
+  return hostRequest("/updates/apply", {
+    method: "POST",
+    body: JSON.stringify({ force }),
+  });
+}
+
+export async function getUpdateStatus() {
+  return hostRequest("/updates/status");
 }

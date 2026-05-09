@@ -5,6 +5,7 @@ import useSWR from "swr";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/components/toast";
+import { useDemoMode, DemoModeDevToggle } from "@/lib/demoMode";
 
 const fetcher = (url: string) => fetch(url).then((r) => { if (r.status === 401) throw new Error("unauthorized"); return r.json(); });
 
@@ -43,7 +44,7 @@ function WorldMenu({ server, onAction }: { server: ServerStatus; onAction: (acti
   }, [open]);
 
   return (
-    <div ref={ref} className="relative">
+    <div ref={ref} style={{ position: "relative" }}>
       <button
         className="mc-btn px-2 py-0 text-xs"
         onClick={(e) => { e.preventDefault(); e.stopPropagation(); setOpen(!open); }}
@@ -51,7 +52,7 @@ function WorldMenu({ server, onAction }: { server: ServerStatus; onAction: (acti
         &#x22EE;
       </button>
       {open && (
-        <div className="absolute right-0 top-8 mc-dark-panel p-1 z-50 min-w-[140px]" style={{ boxShadow: "4px 4px 0 rgba(0,0,0,0.4)" }}>
+        <div className="mc-dark-panel p-1 min-w-[160px]" style={{ position: "absolute", right: 0, top: "2rem", zIndex: 9999, boxShadow: "4px 4px 0 rgba(0,0,0,0.4)" }}>
           {server.online ? (
             <>
               <button className="mc-btn w-full text-xs mb-1" onClick={(e) => { e.preventDefault(); setOpen(false); onAction("stop"); }}>Stop</button>
@@ -73,11 +74,14 @@ function WorldMenu({ server, onAction }: { server: ServerStatus; onAction: (acti
 export default function Dashboard() {
   const router = useRouter();
   const { toast } = useToast();
+  const { transform } = useDemoMode();
   const [creating, setCreating] = useState(false);
   const [newName, setNewName] = useState("");
+  const [newSeed, setNewSeed] = useState("");
   const [busy, setBusy] = useState(false);
-  const [confirmDialog, setConfirmDialog] = useState<{ message: string; onConfirm: () => void } | null>(null);
+  const [confirmDialog, setConfirmDialog] = useState<{ message: string; onConfirm: () => void; onCancel: () => void } | null>(null);
   const [deletedIds, setDeletedIds] = useState<Set<string>>(new Set());
+  const [updateBusy, setUpdateBusy] = useState(false);
 
   const { data: rawServers, error, isLoading, mutate } = useSWR<ServerStatus[]>("/api/servers", fetcher, {
     refreshInterval: 5000, onError: (err) => { if (err.message === "unauthorized") router.push("/login"); },
@@ -91,17 +95,19 @@ export default function Dashboard() {
       setConfirmDialog({
         message,
         onConfirm: () => { setConfirmDialog(null); resolve(true); },
+        onCancel:  () => { setConfirmDialog(null); resolve(false); },
       });
     });
   }
 
   function cancelConfirm() {
-    setConfirmDialog(null);
+    confirmDialog?.onCancel();
   }
 
   async function handleWorldAction(server: ServerStatus, action: string) {
+    const displayName = transform(server.name, "worldName");
     if (action === "delete") {
-      const ok = await showConfirm(`Delete "${server.name}" permanently?\n\nThis will stop and destroy the world. This cannot be undone.`);
+      const ok = await showConfirm(`Delete "${displayName}" permanently?\n\nThis will stop and destroy the world. This cannot be undone.`);
       if (!ok) return;
 
       // Hide from UI immediately and permanently until page reload
@@ -112,7 +118,7 @@ export default function Dashboard() {
         const res = await fetch("/api/worlds", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "delete", id: server.id }) });
         const r = await res.json();
         if (r.success) {
-          toast(`"${server.name}" deleted`, "success");
+          toast(`"${displayName}" deleted`, "success");
         } else {
           toast(r.error || "Delete failed", "error");
           // Unhide if delete actually failed
@@ -126,11 +132,11 @@ export default function Dashboard() {
     }
 
     if (action === "stop" || action === "restart") {
-      const ok = await showConfirm(`${action.charAt(0).toUpperCase() + action.slice(1)} "${server.name}"?`);
+      const ok = await showConfirm(`${action.charAt(0).toUpperCase() + action.slice(1)} "${displayName}"?`);
       if (!ok) return;
     }
     if (action === "backup") {
-      const ok = await showConfirm(`Create a backup of "${server.name}"?`);
+      const ok = await showConfirm(`Create a backup of "${displayName}"?`);
       if (!ok) return;
     }
 
@@ -149,17 +155,18 @@ export default function Dashboard() {
   async function handleCreate() {
     const name = newName.trim();
     if (!name) return;
-    setBusy(true);
+    const seed = newSeed.trim();
 
     setCreating(false);
     setNewName("");
+    setNewSeed("");
     setBusy(true);
 
     try {
       const res = await fetch("/api/worlds", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "create", name }),
+        body: JSON.stringify({ action: "create", name, ...(seed ? { seed } : {}) }),
       });
       const result = await res.json();
       if (result.success) {
@@ -169,12 +176,52 @@ export default function Dashboard() {
           players: 0, maxPlayers: 20, version: "", difficulty: "", gamemode: "",
         };
         mutate((prev) => [...(prev || []), newWorld], false);
-        toast(`"${name}" created! Starting up...`, "success");
+        toast(`"${transform(name, "worldName")}" created! Starting up...`, "success");
       } else {
         toast(result.error || "Failed to create world", "error");
       }
     } catch { toast("Network error", "error"); }
     finally { setBusy(false); }
+  }
+
+  async function handleUpdateClick() {
+    setUpdateBusy(true);
+    let polling = false;
+    try {
+      const res = await fetch("/api/updates");
+      const info = await res.json();
+      if (!res.ok) { toast(info.error || "Update check failed", "error"); return; }
+
+      const outdated = (info.worlds || []).filter((w: { needsUpdate: boolean }) => w.needsUpdate);
+      if (outdated.length === 0) { toast(`All worlds up to date (${info.latest})`, "success"); return; }
+
+      const names = outdated.map((w: { name: string }) => w.name).join(", ");
+      const ok = await showConfirm(`Update available: ${info.latest}\n\nWorlds to update: ${names}\n\nWorlds with players online will be skipped. Updated worlds will restart.`);
+      if (!ok) return;
+
+      toast(`Updating ${outdated.length} world(s)...`, "info");
+      const applyRes = await fetch("/api/updates", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({}) });
+      const applyJson = await applyRes.json();
+      if (!applyJson.success) { toast(applyJson.error || "Update failed", "error"); return; }
+
+      polling = true;
+      const poll = setInterval(async () => {
+        try {
+          const s = await (await fetch("/api/updates?status=1")).json();
+          if (!s.running && s.finishedAt) {
+            clearInterval(poll);
+            toast("Update complete", "success");
+            setUpdateBusy(false);
+            mutate();
+          }
+        } catch { /* keep polling */ }
+      }, 3000);
+      setTimeout(() => { clearInterval(poll); setUpdateBusy(false); }, 10 * 60 * 1000);
+    } catch {
+      toast("Network error", "error");
+    } finally {
+      if (!polling) setUpdateBusy(false);
+    }
   }
 
   return (
@@ -196,23 +243,33 @@ export default function Dashboard() {
         </div>
         <div className="flex items-center gap-3">
           <Link href="/addons"><button className="mc-btn mc-btn-amber text-xs px-4 py-1.5 font-bold">BROWSE ADD-ONS</button></Link>
+          <button
+            className="mc-btn text-xs px-4 py-1.5 font-bold"
+            disabled={updateBusy}
+            onClick={handleUpdateClick}
+          >
+            {updateBusy ? "CHECKING..." : "CHECK FOR UPDATES"}
+          </button>
           <button className="mc-btn text-xs px-4 py-1.5" onClick={async () => { await fetch("/api/logout", { method: "POST" }); router.push("/login"); }}>
             LOGOUT
           </button>
         </div>
       </div>
 
-      {isLoading && <p className="mc-gray text-xs py-8 text-center animate-pulse">Scanning for active worlds...</p>}
+      {isLoading && !rawServers && <p className="mc-gray text-xs py-8 text-center animate-pulse">Scanning for active worlds...</p>}
       {error && !isLoading && <p className="mc-red text-xs py-8 text-center">Connection to host lost. Reconnecting...</p>}
 
       {/* Your Worlds */}
       <div className="mc-section mb-6 text-center text-lg uppercase tracking-widest">Active Instances</div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-12 max-w-4xl mx-auto">
-        {servers?.map((server) => (
-          <div 
-            key={server.id} 
-            className={`mc-dark-panel p-5 transition-all duration-300 relative group ${server.online ? "border-green-500/30 shadow-[0_0_15px_rgba(85,255,85,0.1)]" : "opacity-80"}`}
-            style={{ 
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-12 max-w-4xl mx-auto" style={{ overflow: "visible" }}>
+        {servers?.map((server) => {
+          const displayName = transform(server.name, "worldName");
+          const displayId = transform(server.id, "worldId");
+          return (
+          <div
+            key={server.id}
+            className={`mc-dark-panel p-5 transition-all duration-300 relative group ${server.online ? "border-green-500/30 shadow-[0_0_15px_rgba(85,255,85,0.1)]" : ""}`}
+            style={{
               overflow: "visible",
               borderWidth: "2px",
               borderColor: server.online ? "#55ff5544" : "#2e2e2e"
@@ -221,15 +278,15 @@ export default function Dashboard() {
             {server.online && (
               <div className="absolute -inset-[1px] bg-gradient-to-r from-green-500/20 to-emerald-500/20 rounded-sm blur-sm opacity-50 group-hover:opacity-100 transition-opacity pointer-events-none" />
             )}
-            
-            <div className="flex items-start justify-between mb-4 relative z-10">
+
+            <div className="flex items-start justify-between mb-4 relative z-20">
               <Link href={server.id === "creating" ? "#" : `/world/${server.id}`} className="flex items-center gap-3 flex-1 min-w-0">
                 <div className={`mc-avatar w-12 h-12 text-xl border-2 transition-transform duration-300 group-hover:scale-110 ${server.online ? "border-green-500/50" : "border-gray-700"}`}>
-                  {server.name.charAt(0)}
+                  {displayName.charAt(0)}
                 </div>
                 <div className="flex flex-col min-w-0">
-                  <span className="mc-white text-base font-bold truncate tracking-tight">{server.name}</span>
-                  <span className="mc-dark-gray text-[10px] uppercase">{server.id.slice(0, 8)}</span>
+                  <span className="mc-white text-base font-bold truncate tracking-tight">{displayName}</span>
+                  <span className="mc-dark-gray text-[10px] uppercase">{displayId.slice(0, 8)}</span>
                 </div>
               </Link>
               <div className="flex flex-col items-end gap-2 flex-shrink-0">
@@ -276,7 +333,8 @@ export default function Dashboard() {
               )}
             </div>
           </div>
-        ))}
+          );
+        })}
 
         {/* Create World Card */}
         {!creating && (
@@ -310,8 +368,19 @@ export default function Dashboard() {
                   autoFocus
                 />
               </div>
+              <div>
+                <label className="mc-dark-gray text-[10px] uppercase font-bold mb-1.5 block">World Seed <span className="mc-dark-gray font-normal normal-case">(optional)</span></label>
+                <input
+                  className="mc-input py-3 text-base"
+                  placeholder="Leave blank for random"
+                  value={newSeed}
+                  onChange={(e) => setNewSeed(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && handleCreate()}
+                  disabled={busy}
+                />
+              </div>
               <div className="flex gap-3 pt-4">
-                <button className="mc-btn flex-1 py-3 text-xs uppercase font-bold" onClick={() => { setCreating(false); setNewName(""); }} disabled={busy}>Abort</button>
+                <button className="mc-btn flex-1 py-3 text-xs uppercase font-bold" onClick={() => { setCreating(false); setNewName(""); setNewSeed(""); }} disabled={busy}>Abort</button>
                 <button className="mc-btn mc-btn-green flex-1 py-3 text-xs uppercase font-bold" onClick={handleCreate} disabled={busy || !newName.trim()}>
                   {busy ? "Deploying..." : "Initialize"}
                 </button>
@@ -324,7 +393,7 @@ export default function Dashboard() {
       {/* Footer */}
       <div className="mc-sep" />
       <p className="mc-dark-gray text-xs mt-3 text-center">
-        MinecraftLab &middot; Worlds auto-stop after 10 minutes with no players
+        MinecraftLab &middot; Worlds auto-stop after 10 minutes with no players<DemoModeDevToggle />
       </p>
     </div>
   );

@@ -14,7 +14,8 @@ export async function POST(req: Request) {
   if (action === "create") {
     const name = body.name?.trim();
     if (!name) return NextResponse.json({ error: "missing name" }, { status: 400 });
-    const result = await createWorld(name);
+    const seed = body.seed?.trim() || undefined;
+    const result = await createWorld(name, seed);
     return NextResponse.json(result, { status: result.success ? 200 : 500 });
   }
 

@@ -1,14 +1,38 @@
+# --- Build artifacts ---
 node_modules/
 .next/
 __pycache__/
 *.pyc
-.env.local
+*.tsbuildinfo
 *.tar.gz
 .DS_Store
+
+# --- Local config / secrets ---
+.env
+.env.local
+.env.production
+
+# --- Agent tooling (AOG, Claude Code, worktrees) ---
+.aog/
+.worktrees/
+.claude/
+
+# --- Research drafts / personal notes ---
 *_research.md
 *_resaearch.md
 research/
-webui/public/blocks.png
+move-day.md
+deploy
+migrate-ips.sh
+
+# --- World saves & binaries (NEVER commit) ---
+REALMS/
+*.mcworld
+*.mcaddon
+*.mcpack
+docs/bedrock-server-*.zip
 docs/screenshots/
 docs/inspiration/
-.claude/
+
+# --- Generated files ---
+webui/public/blocks.png

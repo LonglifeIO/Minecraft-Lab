@@ -6,8 +6,19 @@ import Link from "next/link";
 import useSWR from "swr";
 import { useToast } from "@/components/toast";
 import { useLikedAddons, type LikedAddon } from "@/lib/use-liked-addons";
+import { useDemoMode } from "@/lib/demoMode";
 
-const fetcher = (url: string) => fetch(url).then((r) => { if (r.status === 401) throw new Error("unauthorized"); return r.json(); });
+const fetcher = (url: string) => fetch(url).then((r) => { if (r.status === 401) throw new Error("unauthorized"); if (!r.ok) throw new Error("fetch failed"); return r.json(); });
+
+const MAP_CLASS_ID = 6913;
+const MAP_CATEGORY_ID = 4986;
+
+function isMapAddon(addon: AddonDetail, files?: AddonFile[]): boolean {
+  if (addon.classId === MAP_CLASS_ID) return true;
+  if (addon.categories.some((c) => c.id === MAP_CATEGORY_ID)) return true;
+  if (files?.some((f) => f.fileName.toLowerCase().endsWith(".mcworld"))) return true;
+  return false;
+}
 
 interface AddonDetail {
   id: number;
@@ -16,6 +27,7 @@ interface AddonDetail {
   description: string;
   downloadCount: number;
   thumbUrl: string;
+  classId: number;
   screenshots: { id: number; title: string; url: string }[];
   authors: { name: string; url: string }[];
   categories: { id: number; name: string }[];
@@ -57,10 +69,12 @@ export default function AddonDetailPage() {
   const params = useParams();
   const router = useRouter();
   const { toast } = useToast();
+  const { transform } = useDemoMode();
   const modId = params.modId as string;
   const [installing, setInstalling] = useState(false);
   const [showWorldPicker, setShowWorldPicker] = useState(false);
   const [selectedFileId, setSelectedFileId] = useState<number | null>(null);
+  const [newWorldName, setNewWorldName] = useState("");
   const [screenshotIdx, setScreenshotIdx] = useState(0);
   const { isLiked, toggle } = useLikedAddons();
 
@@ -75,6 +89,44 @@ export default function AddonDetailPage() {
   const addon = data?.addon;
   const files = data?.files || [];
 
+  function openWorldPicker() {
+    if (addon && isMapAddon(addon, files)) {
+      setNewWorldName(addon.name.replace(/[^A-Za-z0-9._-]+/g, "_").slice(0, 40));
+    }
+    setShowWorldPicker(true);
+  }
+
+  async function handleImportWorld() {
+    const fileId = selectedFileId || files[0]?.id;
+    const file = files.find((f) => f.id === fileId) || files[0];
+    if (!file || !addon) return;
+    const trimmed = newWorldName.trim();
+    if (!trimmed) return;
+
+    setInstalling(true);
+    setShowWorldPicker(false);
+    toast(`Creating world "${transform(trimmed, "worldName")}" from ${addon.name}...`, "info");
+
+    try {
+      const res = await fetch("/api/addons/import-world", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ modId: addon.id, fileId: file.id, fileUrl: file.downloadUrl, worldName: trimmed }),
+      });
+      const result = await res.json();
+      if (result.success) {
+        toast(`World "${transform(trimmed, "worldName")}" created! Opening dashboard...`, "success");
+        router.push(`/world/${result.worldId}`);
+      } else {
+        toast(result.error || "Import failed", "error");
+      }
+    } catch {
+      toast("Network error", "error");
+    } finally {
+      setInstalling(false);
+    }
+  }
+
   async function handleInstall(worldId: string, worldName: string) {
     const fileId = selectedFileId || files[0]?.id;
     const file = files.find((f) => f.id === fileId) || files[0];
@@ -82,7 +134,7 @@ export default function AddonDetailPage() {
 
     setInstalling(true);
     setShowWorldPicker(false);
-    toast(`Installing ${addon.name} to ${worldName}...`, "info");
+    toast(`Installing ${addon.name} to ${transform(worldName, "worldName")}...`, "info");
 
     try {
       const res = await fetch("/api/addons/install", {
@@ -179,9 +231,11 @@ export default function AddonDetailPage() {
                   <button
                     className={`mc-btn mc-btn-green text-sm px-10 py-3 w-full sm:w-auto font-bold tracking-widest ${!installing ? "mc-glint" : ""}`}
                     disabled={installing || files.length === 0}
-                    onClick={() => setShowWorldPicker(true)}
+                    onClick={openWorldPicker}
                   >
-                    {installing ? "INSTALLING..." : "INSTALL TO WORLD"}
+                    {installing
+                      ? (addon && isMapAddon(addon) ? "CREATING..." : "INSTALLING...")
+                      : (addon && isMapAddon(addon) ? "CREATE WORLD FROM MAP" : "INSTALL TO WORLD")}
                   </button>
                 </div>
               </div>
@@ -198,29 +252,55 @@ export default function AddonDetailPage() {
           {showWorldPicker && (
             <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: "rgba(0,0,0,0.7)" }}>
               <div className="mc-window p-4 w-80" style={{ boxShadow: "6px 6px 0 rgba(0,0,0,0.5)" }}>
-                <div className="mc-section text-center mb-3">Select World</div>
-                <div className="mc-window-inner bg-[#444] mb-3 max-h-[200px] overflow-y-auto">
-                  {worlds && worlds.length > 0 ? (
-                    <div className="space-y-1">
-                      {worlds.map((w) => (
-                        <button
-                          key={w.id}
-                          className="mc-row w-full text-left p-2 flex items-center justify-between"
-                          onClick={() => handleInstall(w.id, w.name)}
-                          disabled={installing}
-                        >
-                          <span className="mc-white text-xs">{w.name}</span>
-                          <span className={`mc-status ${w.online ? "mc-status-online" : "mc-status-offline"}`} style={{ fontSize: 8 }}>
-                            {w.online ? "Online" : "Offline"}
-                          </span>
-                        </button>
-                      ))}
+                {addon && isMapAddon(addon) ? (
+                  <>
+                    <div className="mc-section text-center mb-1">Create World from Map</div>
+                    <p className="mc-gray text-[10px] text-center mb-3">This map will be set up as a brand-new world. No existing worlds will be affected.</p>
+                    <input
+                      className="mc-input w-full text-xs mb-3"
+                      placeholder="New world name..."
+                      value={newWorldName}
+                      onChange={(e) => setNewWorldName(e.target.value)}
+                      maxLength={40}
+                    />
+                    <div className="flex gap-2">
+                      <button className="mc-btn flex-1 text-xs" onClick={() => setShowWorldPicker(false)}>Cancel</button>
+                      <button
+                        className="mc-btn mc-btn-green flex-1 text-xs font-bold"
+                        disabled={!newWorldName.trim() || installing}
+                        onClick={handleImportWorld}
+                      >
+                        Create World
+                      </button>
                     </div>
-                  ) : (
-                    <p className="mc-gray text-xs text-center py-4">No worlds found</p>
-                  )}
-                </div>
-                <button className="mc-btn w-full text-xs" onClick={() => setShowWorldPicker(false)}>Cancel</button>
+                  </>
+                ) : (
+                  <>
+                    <div className="mc-section text-center mb-3">Select World</div>
+                    <div className="mc-window-inner bg-[#444] mb-3 max-h-[200px] overflow-y-auto">
+                      {worlds && worlds.length > 0 ? (
+                        <div className="space-y-1">
+                          {worlds.map((w) => (
+                            <button
+                              key={w.id}
+                              className="mc-row w-full text-left p-2 flex items-center justify-between"
+                              onClick={() => handleInstall(w.id, w.name)}
+                              disabled={installing}
+                            >
+                              <span className="mc-white text-xs">{transform(w.name, "worldName")}</span>
+                              <span className={`mc-status ${w.online ? "mc-status-online" : "mc-status-offline"}`} style={{ fontSize: 8 }}>
+                                {w.online ? "Online" : "Offline"}
+                              </span>
+                            </button>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="mc-gray text-xs text-center py-4">No worlds found</p>
+                      )}
+                    </div>
+                    <button className="mc-btn w-full text-xs" onClick={() => setShowWorldPicker(false)}>Cancel</button>
+                  </>
+                )}
               </div>
             </div>
           )}
@@ -262,8 +342,8 @@ export default function AddonDetailPage() {
             />
           </div>
 
-          {/* Files */}
-          <div className="mc-dark-panel mb-4 overflow-hidden">
+          {/* Files — hidden for map packs, not relevant to end user */}
+          {!isMapAddon(addon, files) && <div className="mc-dark-panel mb-4 overflow-hidden">
             <div className="p-3 pb-1 border-b border-black/20"><div className="mc-section">Recent Versions</div></div>
             <div className="divide-y divide-black/10">
               {files.length === 0 && <p className="mc-gray text-xs p-3">No files available</p>}
@@ -279,7 +359,7 @@ export default function AddonDetailPage() {
                   </div>
                   <button
                     className={`mc-btn text-xs px-2 py-0 h-6 ${selectedFileId === file.id ? "mc-btn-active" : ""}`}
-                    onClick={() => { setSelectedFileId(file.id); setShowWorldPicker(true); }}
+                    onClick={() => { setSelectedFileId(file.id); openWorldPicker(); }}
                     disabled={installing}
                   >
                     Install
@@ -287,7 +367,7 @@ export default function AddonDetailPage() {
                 </div>
               ))}
             </div>
-          </div>
+          </div>}
 
           {/* Dependencies */}
           {files[0]?.dependencies && files[0].dependencies.length > 0 && (

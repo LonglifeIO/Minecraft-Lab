@@ -3,6 +3,7 @@ import { getSession } from "@/lib/session";
 import { listWorlds } from "@/lib/host";
 import * as bds from "@/lib/bds";
 import { getDownloadUrl } from "@/lib/curseforge";
+import { setRestartPending } from "@/lib/restart-state";
 
 export async function POST(req: NextRequest) {
   const session = await getSession();
@@ -27,6 +28,7 @@ export async function POST(req: NextRequest) {
     const url = fileUrl || await getDownloadUrl(modId, fileId);
     if (!url) return NextResponse.json({ error: "no download URL available for this file" }, { status: 422 });
     const result = await bds.installAddon(server, { url, worldName, modId, fileId, addonName });
+    if (result.success) setRestartPending(worldId);
 
     return NextResponse.json(result);
   } catch {

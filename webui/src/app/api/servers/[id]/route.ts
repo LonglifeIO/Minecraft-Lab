@@ -2,6 +2,8 @@ import { NextResponse, NextRequest } from "next/server";
 import { getSession } from "@/lib/session";
 import { listWorlds, startWorldContainer, stopWorldContainer } from "@/lib/host";
 import * as bds from "@/lib/bds";
+import { isRestartPending, clearRestartPending, setRestartPending } from "@/lib/restart-state";
+import { getPermissions, setPermission } from "@/lib/bds";
 
 function getServerFromWorlds(worlds: any[], id: string) {
   const w = worlds.find((w: any) => w.id === id);
@@ -19,13 +21,21 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   if (!server) return NextResponse.json({ error: "server not found" }, { status: 404 });
 
   const world = worlds.find((w: any) => w.id === id);
-  const [status, allowlist] = await Promise.all([
+  const [statusResult, allowlistResult, permissionsResult] = await Promise.allSettled([
     bds.getStatus(server),
     bds.getAllowlist(server),
+    getPermissions(server),
   ]);
+
+  const status = statusResult.status === "fulfilled"
+    ? statusResult.value
+    : { online: false, players: 0, maxPlayers: 20, playerList: [], version: "", worldName: "", difficulty: "", gamemode: "" };
+  const allowlist = allowlistResult.status === "fulfilled" && Array.isArray(allowlistResult.value) ? allowlistResult.value : [];
+  const permissions = permissionsResult.status === "fulfilled" && Array.isArray(permissionsResult.value) ? permissionsResult.value : [];
+
   // Always use registry name, not BDS response (avoids flicker during startup)
   status.worldName = world?.name || status.worldName;
-  return NextResponse.json({ status, allowlist });
+  return NextResponse.json({ status, allowlist, permissions, restartPending: isRestartPending(id), importing: world?.importing === true });
 }
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -48,12 +58,14 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   try {
     switch (action) {
       case "start":
+        clearRestartPending(id);
         return NextResponse.json(await startWorldContainer(id));
 
       case "stop":
         return NextResponse.json(await stopWorldContainer(id));
 
       case "restart":
+        clearRestartPending(id);
         await stopWorldContainer(id);
         await new Promise((r) => setTimeout(r, 3000));
         return NextResponse.json(await startWorldContainer(id));
@@ -64,8 +76,21 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       case "kick":
         return NextResponse.json(await bds.sendCommand(server, `kick ${body.name}`));
 
-      case "difficulty":
-        return NextResponse.json(await bds.sendCommand(server, `difficulty ${body.level}`));
+      case "difficulty": {
+        const diffResult = await bds.setDifficulty(server, body.level);
+        if (diffResult.success) setRestartPending(id);
+        return NextResponse.json(diffResult);
+      }
+
+      case "gamemode": {
+        const gmResult = await bds.setGamemode(server, body.mode);
+        if (gmResult.success) setRestartPending(id);
+        return NextResponse.json(gmResult);
+      }
+
+      case "set_permission":
+        if (!isAdmin) return NextResponse.json({ error: "admin access required" }, { status: 403 });
+        return NextResponse.json(await setPermission(server, body.name, body.permission));
 
       case "allowlist_add":
         return NextResponse.json(await bds.addToAllowlist(server, body.name));
@@ -87,10 +112,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         ];
         for (const rule of ruleNames) {
           const result = await bds.sendCommand(server, `gamerule ${rule}`);
-          const output = result.output || "";
-          if (output.includes("true")) rules[rule] = true;
-          else if (output.includes("false")) rules[rule] = false;
-          else rules[rule] = true;
+          const output = result?.output || "";
+          rules[rule] = output.includes("true");
         }
         return NextResponse.json({ rules });
       }

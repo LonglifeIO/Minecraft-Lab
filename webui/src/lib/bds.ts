@@ -1,19 +1,31 @@
-import { ServerConfig } from "./config";
+export interface ServerConfig {
+  id: string;
+  name: string;
+  host: string;
+  apiPort: number;
+}
 
 const API_TOKEN = process.env.BDS_API_TOKEN || "";
 
 async function bdsRequest(server: ServerConfig, path: string, options?: RequestInit) {
   const url = `http://${server.host}:${server.apiPort}${path}`;
-  const res = await fetch(url, {
-    ...options,
-    headers: {
-      Authorization: `Bearer ${API_TOKEN}`,
-      "Content-Type": "application/json",
-      ...options?.headers,
-    },
-    cache: "no-store",
-  });
-  return res.json();
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 8000);
+  try {
+    const res = await fetch(url, {
+      ...options,
+      headers: {
+        Authorization: `Bearer ${API_TOKEN}`,
+        "Content-Type": "application/json",
+        ...options?.headers,
+      },
+      cache: "no-store",
+      signal: controller.signal,
+    });
+    return res.json();
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 export async function getStatus(server: ServerConfig) {
@@ -36,10 +48,27 @@ export async function getStatus(server: ServerConfig) {
 
 export async function getAllowlist(server: ServerConfig) {
   try {
-    return await bdsRequest(server, "/allowlist");
+    const result = await bdsRequest(server, "/allowlist");
+    return Array.isArray(result) ? result : [];
   } catch {
     return [];
   }
+}
+
+export async function getPermissions(server: ServerConfig) {
+  try {
+    const result = await bdsRequest(server, "/permissions");
+    return Array.isArray(result) ? result : [];
+  } catch {
+    return [];
+  }
+}
+
+export async function setPermission(server: ServerConfig, name: string, permission: string) {
+  return bdsRequest(server, "/permissions/set", {
+    method: "POST",
+    body: JSON.stringify({ name, permission }),
+  });
 }
 
 export async function getBackups(server: ServerConfig) {
@@ -48,6 +77,14 @@ export async function getBackups(server: ServerConfig) {
   } catch {
     return [];
   }
+}
+
+export async function setGamemode(server: ServerConfig, mode: string) {
+  return bdsRequest(server, "/gamemode", { method: "POST", body: JSON.stringify({ mode }) });
+}
+
+export async function setDifficulty(server: ServerConfig, level: string) {
+  return bdsRequest(server, "/difficulty", { method: "POST", body: JSON.stringify({ level }) });
 }
 
 export async function power(server: ServerConfig, action: string) {
@@ -111,4 +148,8 @@ export async function removeAddon(server: ServerConfig, data: { uuid: string; wo
 
 export async function toggleAddon(server: ServerConfig, data: { uuid: string; worldName: string; enabled: boolean }) {
   return bdsRequest(server, "/addons/toggle", { method: "POST", body: JSON.stringify(data) });
+}
+
+export async function importWorld(server: ServerConfig, data: { url: string; worldName: string }) {
+  return bdsRequest(server, "/worlds/import", { method: "POST", body: JSON.stringify(data) });
 }

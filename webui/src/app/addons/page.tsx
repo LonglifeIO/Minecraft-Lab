@@ -6,7 +6,7 @@ import Link from "next/link";
 import useSWR from "swr";
 import { useLikedAddons, type LikedAddon } from "@/lib/use-liked-addons";
 
-const fetcher = (url: string) => fetch(url).then((r) => { if (r.status === 401) throw new Error("unauthorized"); return r.json(); });
+const fetcher = (url: string) => fetch(url).then((r) => { if (r.status === 401) throw new Error("unauthorized"); if (!r.ok) throw new Error("fetch failed"); return r.json(); });
 
 interface SearchResult {
   id: number;
@@ -118,7 +118,7 @@ export default function AddonsPage() {
     };
   }
 
-  const totalPages = data ? Math.ceil(data.pagination.totalCount / pageSize) : 0;
+  const totalPages = data?.pagination ? Math.ceil(data.pagination.totalCount / pageSize) : 0;
 
   return (
     <div className="min-h-screen p-4 sm:p-6 max-w-5xl mx-auto pb-20">

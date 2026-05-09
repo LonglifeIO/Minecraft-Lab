@@ -104,31 +104,37 @@ export async function resolveDependencies(
     result.errors.push(`Failed to load addon details: ${message}`);
   }
 
-  for (const dependency of uniqueDependencies) {
-    const addon = addonMap.get(dependency.modId);
-    const isInstalled = installedSet.has(dependency.modId);
-
-    if (dependency.relationType === INCOMPATIBLE_DEPENDENCY) {
-      result.incompatible.push(buildFallbackInfo(dependency, addon, installedSet));
-      continue;
-    }
-
-    let file: AddonFile | undefined;
-    if (!isInstalled) {
+  // Fetch files in parallel batches of 3 to avoid hammering CurseForge
+  const BATCH_SIZE = 3;
+  const fileMap = new Map<number, AddonFile | undefined>();
+  const fetchable = uniqueDependencies.filter(
+    (d) => d.relationType !== INCOMPATIBLE_DEPENDENCY && !installedSet.has(d.modId),
+  );
+  for (let i = 0; i < fetchable.length; i += BATCH_SIZE) {
+    const batch = fetchable.slice(i, i + BATCH_SIZE);
+    await Promise.all(batch.map(async (dependency) => {
       try {
         const response = await getAddonFiles(dependency.modId);
-        file = response.files[0];
-
-        if (!file) {
+        fileMap.set(dependency.modId, response.files[0]);
+        if (!response.files[0]) {
           result.errors.push(`No files found for dependency ${dependency.modId}.`);
         }
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         result.errors.push(`Failed to load files for dependency ${dependency.modId}: ${message}`);
       }
+    }));
+  }
+
+  for (const dependency of uniqueDependencies) {
+    const addon = addonMap.get(dependency.modId);
+
+    if (dependency.relationType === INCOMPATIBLE_DEPENDENCY) {
+      result.incompatible.push(buildFallbackInfo(dependency, addon, installedSet));
+      continue;
     }
 
-    const info = buildFallbackInfo(dependency, addon, installedSet, file);
+    const info = buildFallbackInfo(dependency, addon, installedSet, fileMap.get(dependency.modId));
 
     if (dependency.relationType === REQUIRED_DEPENDENCY) {
       result.required.push(info);

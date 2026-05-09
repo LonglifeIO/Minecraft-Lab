@@ -1,166 +1,181 @@
 # MinecraftLab
 
-Self-hosted Minecraft Bedrock server platform replacing Realms, built on Proxmox with a family-friendly web dashboard.
+> A self-hosted Minecraft Bedrock server platform with a custom web UI, container-per-world architecture, integrated CurseForge add-on browser, and PS5/Xbox player support — built as a Realms replacement on Proxmox.
 
-## What This Is
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Next.js](https://img.shields.io/badge/Next.js-16-000000?logo=next.js)](https://nextjs.org/)
+[![Tailwind CSS](https://img.shields.io/badge/Tailwind-v4-38B2AC?logo=tailwind-css)](https://tailwindcss.com/)
+[![Proxmox](https://img.shields.io/badge/Proxmox-VE_9-E57000?logo=proxmox)](https://www.proxmox.com/)
+[![BDS](https://img.shields.io/badge/Minecraft-Bedrock-62B47A)](https://www.minecraft.net/en-us/download/server/bedrock)
 
-A complete setup for running Minecraft Bedrock servers at home with:
+![Dashboard](webui/public/dashboard-screenshot.png)
 
-- **Per-world LXC containers** — each world runs in its own Proxmox container for independent backup/restore
-- **Web dashboard** — mobile-friendly admin UI for non-technical users (parents, moderators)
-- **CurseForge addon library** — browse, filter, and install 6,000+ Bedrock-native add-ons directly from the UI
-- **Realms-style settings** — game mode, difficulty, and game rule toggles that work just like Realms
-- **Player management** — allowlist, kick, per-player controls
-- **Backup system** — safe LevelDB backups using BDS save hold/query/resume protocol
-- **Zero port forwarding** — Playit.gg tunnel for player access, Tailscale for admin access
-- **Console player support** — MCXboxBroadcast (Friends tab) + BedrockConnect (DNS fallback)
+> Screenshots taken with the built-in demo mode (`Ctrl+Shift+D`) so world names and gamertags are placeholder data.
+
+## Why this exists
+
+Minecraft Realms is great — until you stop wanting to pay $10/month forever, want more than two worlds, want to install addons that aren't in the marketplace, or want full control over backups and uptime. The official Bedrock Dedicated Server (BDS) gives you all of that for free, but it ships with no UI, no addon manager, and no built-in way for console players to join. Most "MC server panel" projects (Pterodactyl, Crafty) are built around Java Edition.
+
+MinecraftLab is a **self-hosted Realms replacement** that gives you the Realms experience on your own hardware: each world runs in its own LXC container, console players join via Xbox Live's Friends tab, addons install in one click from a built-in CurseForge browser, and the whole thing is managed through a Minecraft-styled web dashboard accessible to non-technical family members. Run it on a Mac Mini in a closet, an old desktop, or any spare Proxmox host.
+
+## What it does
+
+- **One container per world** — independent backups, resource limits, lifecycle management
+- **Web dashboard** — mobile-friendly, role-based (admin/moderator), zero command-line for daily use
+- **CurseForge addon library** — browse 6,000+ Bedrock-native add-ons, install with one click, save favourites
+- **Realms-style settings** — gamemode, difficulty, and gamerule toggles with deferred-restart prompts
+- **PS5 / Xbox player support** — MCXboxBroadcast bridges to the Friends tab; players join with a tap
+- **Auto-update** — hourly version check + 12-hour backup-and-update sweep, both skip worlds with players online
+- **Manual update button** — admin-only "Check for Updates" trigger for emergencies
+- **Safe LevelDB backups** — uses BDS `save hold` / `save query` / `save resume` protocol
+- **Realms world import** — drop a `.mcworld` export, get a fresh container running it
+- **Zero port forwarding** — Playit.gg for player traffic, Tailscale for admin
 
 ## Architecture
 
-```
-Browser → Next.js Web UI (CT 103) → BDS Wrapper API (CT 100/101) → Bedrock Server
-```
+```mermaid
+graph TB
+    Player[PS5 / Xbox / Mobile / PC]
+    Admin[Admin Browser]
 
-| Container | Purpose |
-|-----------|---------|
-| CT 100 | BDS World 1 |
-| CT 101 | BDS World 2 |
-| CT 102 | Crafty Controller (optional) |
-| CT 103 | Next.js Web Dashboard |
-| CT 104 | Caddy Reverse Proxy |
-| CT 105 | Playit.gg + MCXboxBroadcast |
-| CT 106 | Uptime Kuma Monitoring |
+    Player -- "Friends Tab" --> Broadcast
+    Player -- "UDP 19132" --> Tunnel
+    Admin -- "HTTPS" --> WebUI
 
-## Components
+    subgraph Proxmox["Proxmox VE Host"]
+        HostAPI[host-api.py<br/>Container lifecycle + updates]
 
-### BDS Wrapper API (`bds-api.py`)
+        subgraph CT103["CT 103: Web UI"]
+            WebUI[Next.js 16<br/>Tailwind v4]
+        end
 
-Lightweight Python HTTP API that runs alongside each Bedrock Dedicated Server. Controls BDS via screen stdin/stdout.
+        subgraph CT105["CT 105: Tunnel"]
+            Tunnel[Playit.gg agent]
+            Broadcast[MCXboxBroadcast<br/>Xbox Live session]
+        end
 
-**Endpoints:**
-- `GET /status` — server status, player list, version
-- `GET /allowlist` — current allowlist
-- `GET /backups` — list backup archives
-- `POST /power` — start, stop, restart
-- `POST /command` — send any BDS command
-- `POST /allowlist/add` — add player to allowlist
-- `POST /allowlist/remove` — remove player
-- `POST /preset` — apply a game preset (kid_friendly, hard_survival, build_event, normal)
-- `POST /backup` — trigger safe world backup
-- `GET /addons` — list all installed packs (behavior + resource) on the server
-- `GET /addons/world?name=<world>` — list packs active in a specific world
-- `POST /addons/install` — download and install a `.mcpack`/`.mcaddon` from a URL into a world
-- `POST /addons/remove` — remove a pack by UUID
-- `POST /addons/toggle` — enable or disable a pack in a world without removing it
+        subgraph World1["CT 100: World 1"]
+            BDS1[bedrock_server]
+            API1[bds-api.py]
+        end
 
-### Add-on Library (`webui/src/app/addons/`)
+        subgraph WorldN["CT N: World N"]
+            BDSN[bedrock_server]
+            APIN[bds-api.py]
+        end
 
-Integrated CurseForge add-on browser backed by the [Minecraft Bedrock game ID (78022)](https://www.curseforge.com/minecraft-bedrock) — exclusively Bedrock-native content.
-
-![Add-on Library](webui/public/addon-library-screenshot.png)
-
-**Features:**
-- Browse 6,000+ add-ons: Addons, Maps, Texture Packs, Scripts, Skins
-- Category filters: Weapons, Survival, Vanilla+, Magic, Fantasy, Roleplay, Technology, Horror, and more
-- Sort by: Popular, Updated, Name, Downloads
-- Install any add-on directly to a running world with one click
-- Save/heart add-ons to a personal liked list (localStorage)
-- Supports `.mcpack`, `.mcaddon`, and multi-pack `.zip` archives
-- Detects and rejects Java Edition content with a clear error message
-
-**Requires a CurseForge API key** — set `CURSEDFORGE_API=your_key` in `.env.local`.
-
-### Web Dashboard (`webui/`)
-
-Next.js 16 app with Tailwind CSS dark theme.
-
-**Features:**
-- Login with role-based access (admin / moderator / viewer)
-- Dashboard showing all worlds with live status
-- Per-world controls: start/stop/restart, backup
-- Game mode selector (Survival / Creative / Adventure)
-- Difficulty selector (Peaceful / Easy / Normal / Hard)
-- Game rule toggles (Realms-style) with basic + advanced sections
-- Player list with kick button
-- Allowlist management
-- Auto-refreshes every 5 seconds via SWR
-
-**Tech stack:**
-- Next.js 16 (App Router)
-- Tailwind CSS v4
-- iron-session (encrypted cookie auth)
-- SWR (data fetching)
-
-## Setup
-
-### Prerequisites
-
-- Proxmox VE 9.x
-- Ubuntu 22.04 LXC template
-- Debian 12 LXC template
-
-### BDS Containers (CT 100, CT 101)
-
-1. Create an unprivileged LXC container (Ubuntu 22.04, 2GB RAM, 2 cores)
-2. Install BDS:
-   ```bash
-   mkdir -p /opt/bedrock && cd /opt/bedrock
-   curl -L -A "Mozilla/5.0" "https://www.minecraft.net/bedrockdedicatedserver/bin-linux/bedrock-server-VERSION.zip" -o bds.zip
-   unzip bds.zip && rm bds.zip
-   chmod +x bedrock_server
-   useradd -m -s /bin/bash minecraft
-   chown -R minecraft:minecraft /opt/bedrock
-   ```
-3. Deploy `bds-api.py` to `/opt/bedrock/api.py`
-4. Create systemd services for both BDS and the API (see `implementation-plan.md`)
-
-### Web UI Container (CT 103)
-
-1. Create an unprivileged LXC container (Debian 12, 2GB RAM, 1 core)
-2. Install Node.js 20:
-   ```bash
-   curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
-   apt install -y nodejs
-   ```
-3. Set up the project:
-   ```bash
-   cd /opt
-   npx create-next-app@latest family-mc-ui --typescript --tailwind --eslint --app --src-dir --yes
-   cd family-mc-ui
-   npm install iron-session swr clsx tailwind-merge
-   ```
-4. Copy `webui/src/` into `/opt/family-mc-ui/src/`
-5. Create `.env.local` from `.env.example` with your actual values
-6. Build and run:
-   ```bash
-   npm run build
-   npm start
-   ```
-
-## Configuration
-
-Copy `webui/.env.example` to `webui/.env.local` and edit:
-
-```env
-SESSION_SECRET=your-random-string-at-least-32-characters
-USERS=admin:yourpassword:admin,parent:simplepass:moderator
-BDS_API_TOKEN=your-api-token
-SERVERS=world1|My World|192.168.1.100|8080,world2|World 2|192.168.1.101|8080
+        WebUI -- "HTTP :8090" --> HostAPI
+        WebUI -- "HTTP :8080" --> API1
+        WebUI -- "HTTP :8080" --> APIN
+        HostAPI -- "pct exec/start/stop" --> CT103
+        HostAPI -- "pct exec/start/stop" --> World1
+        HostAPI -- "pct exec/start/stop" --> WorldN
+        Tunnel -- "UDP 19132" --> BDS1
+        Broadcast -- "Friends → Join" --> BDS1
+        API1 -- "screen stdin/stdout" --> BDS1
+        APIN -- "screen stdin/stdout" --> BDSN
+    end
 ```
 
-## Hardware
+**Three-tier API:**
+1. **`host-api.py`** (Proxmox host) — container lifecycle, world creation, BDS updates. Calls `pct` directly.
+2. **`bds-api.py`** (per world) — server status, gamemode, difficulty, addons, allowlist. Talks to BDS via `screen` stdin.
+3. **Next.js webui** — server-side API routes proxy to both APIs with shared bearer token.
 
-Recommended specs:
-- **CPU:** 4+ cores (Intel/AMD x86-64)
-- **RAM:** 8GB minimum, 16GB+ recommended (2GB per BDS world)
-- **Storage:** 50GB+ SSD
-- **Network:** Wired Ethernet recommended
-- **Hypervisor:** Proxmox VE 9.x
+## Screenshots
+
+| Per-world dashboard | Add-on library |
+|---|---|
+| ![World settings](webui/public/world-settings-screenshot.png) | ![Add-on library](webui/public/addon-library-screenshot.png) |
+
+## Tech stack
+
+| Layer | Technology |
+|---|---|
+| Frontend | Next.js 16 (App Router), Tailwind CSS v4, SWR, iron-session |
+| Backend (host) | Python `BaseHTTPRequestHandler`, `pct` shell calls |
+| Backend (per-world) | Python wrapper around BDS via `screen` |
+| Auth | iron-session encrypted cookies, role-based (admin/moderator/viewer) |
+| Hypervisor | Proxmox VE 9 (LXC containers, vzdump backups) |
+| Addon source | CurseForge API (gameId 78022 = Bedrock) |
+| Console support | MCXboxBroadcast (Xbox Live broadcast as fake friend) |
+| Player tunnel | Playit.gg (UDP, no port forwarding) |
+| Admin VPN | Tailscale |
+
+## Project structure
+
+```
+minecraftlab/
+├── host-api.py                    # Proxmox host service: container + update orchestration
+├── bds-api.py                     # Per-world BDS wrapper API
+├── scripts/
+│   ├── nightly-maintenance.sh     # 12h backup + update cron
+│   ├── update-check.sh            # Hourly version-check cron (skips if players online)
+│   ├── bds-update.sh              # Apply a downloaded BDS zip to a container
+│   └── bds-backup.sh              # Safe LevelDB backup (save hold protocol)
+├── webui/                         # Next.js dashboard
+│   ├── src/app/                   # Pages: dashboard, world detail, addon browser
+│   ├── src/app/api/               # API routes proxying to host-api / bds-api
+│   └── src/lib/                   # host.ts, bds.ts, curseforge.ts, session.ts
+└── docs/
+    ├── ARCHITECTURE.md            # Full architecture decision record
+    └── SETUP.md                   # Step-by-step deployment
+```
+
+## Quick start
+
+See [`docs/SETUP.md`](docs/SETUP.md) for the full guide. The TL;DR:
+
+1. Provision Proxmox VE 9 with LXC containers per world (Ubuntu 22.04, 2GB / 2 cores each)
+2. Install BDS in each world container, deploy `bds-api.py` as a systemd service
+3. Run `host-api.py` on the Proxmox host as a systemd service (port 8090)
+4. Provision a webui container (Debian 12, Node 20), deploy the Next.js app
+5. Configure `.env.local` with your bearer token and host-api URL
+6. Optional: set up Playit.gg (player tunnel), Tailscale (admin VPN), MCXboxBroadcast (console support)
+
+## API reference
+
+### `host-api.py` (port 8090, host-only)
+
+| Method | Path | Purpose |
+|---|---|---|
+| `GET` | `/worlds` | List all worlds with status |
+| `POST` | `/worlds` | Create a new world (clones standby template) |
+| `POST` | `/worlds/<id>/start` | Start container |
+| `POST` | `/worlds/<id>/stop` | Stop container |
+| `DELETE` | `/worlds/<id>` | Destroy container + remove from registry |
+| `GET` | `/standby` | Standby template provisioning state |
+| `GET` | `/updates/check` | Latest BDS version + per-world status |
+| `POST` | `/updates/apply` | Trigger update on outdated worlds |
+| `GET` | `/updates/status` | Background update progress |
+
+### `bds-api.py` (port 8080, per-container)
+
+| Method | Path | Purpose |
+|---|---|---|
+| `GET` | `/status` | Online state, players, version, gamemode, difficulty |
+| `GET` | `/allowlist`, `/permissions` | Player lists |
+| `POST` | `/gamemode`, `/difficulty` | Update server.properties (deferred restart) |
+| `POST` | `/command` | Send any BDS command via screen stdin |
+| `POST` | `/allowlist/add`, `/allowlist/remove` | Manage allowlist |
+| `POST` | `/backup` | Safe `save hold`-based backup |
+| `GET` | `/addons`, `/addons/world` | List installed packs |
+| `POST` | `/addons/install` | Download + install `.mcpack` / `.mcaddon` from URL |
+| `POST` | `/addons/remove`, `/addons/toggle` | Manage addons in a world |
+| `POST` | `/worlds/import` | Import a `.mcworld` archive |
+
+## Status
+
+Active hobby project. Used in production by a small group of family players. Open to issues and PRs.
+
+**Roadmap:**
+- [ ] Java Edition support (separate container template + RCON wrapper)
+- [ ] Multi-host Proxmox cluster support
+- [ ] Backup browser UI (currently CLI/SSH only)
+- [ ] Player session timeline (who played when)
 
 ## License
 
-MIT
+[MIT](LICENSE) — do anything you want, no warranty.
 
----
-
-*MinecraftLab is an independent project and is not affiliated with, endorsed by, or associated with Mojang Studios or Microsoft. Minecraft is a trademark of Mojang Studios.*
+This project is independent and not affiliated with, endorsed by, or associated with Mojang Studios or Microsoft. *Minecraft* is a trademark of Mojang Studios.

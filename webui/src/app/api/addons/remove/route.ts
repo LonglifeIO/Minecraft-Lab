@@ -2,6 +2,7 @@ import { NextResponse, NextRequest } from "next/server";
 import { getSession } from "@/lib/session";
 import { listWorlds } from "@/lib/host";
 import * as bds from "@/lib/bds";
+import { setRestartPending } from "@/lib/restart-state";
 
 export async function POST(req: NextRequest) {
   const session = await getSession();
@@ -22,6 +23,7 @@ export async function POST(req: NextRequest) {
     const properties = await bds.getProperties(server);
     const worldName = properties["level-name"] || "world";
     const result = await bds.removeAddon(server, { uuid, worldName });
+    if (result.success) setRestartPending(worldId);
 
     return NextResponse.json(result);
   } catch {

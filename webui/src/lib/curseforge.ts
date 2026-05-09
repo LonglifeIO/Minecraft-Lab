@@ -1,7 +1,7 @@
 import "server-only";
 
 const CURSEFORGE_API_BASE_URL = "https://api.curseforge.com";
-const CURSEFORGE_API_KEY = process.env.CURSEDFORGE_API || "";
+const CURSEFORGE_API_KEY = process.env.CURSEFORGE_API || process.env.CURSEDFORGE_API || "";
 const RETRY_DELAY_MS = 1000;
 
 export const CURSEFORGE_GAME_ID = 78022; // Minecraft Bedrock (not 432 = Java)
@@ -45,6 +45,7 @@ export interface AddonDetail {
   description: string;
   downloadCount: number;
   thumbUrl: string;
+  classId: number;
   screenshots: { id: number; title: string; url: string }[];
   authors: { name: string; url: string }[];
   categories: { id: number; name: string }[];
@@ -149,6 +150,7 @@ interface CurseForgeMod {
   slug: string;
   summary: string;
   downloadCount: number;
+  classId?: number;
   logo?: CurseForgeLogo | null;
   authors?: CurseForgeAuthor[];
   categories?: CurseForgeCategory[];
@@ -161,7 +163,7 @@ interface CurseForgeMod {
 
 function assertApiKey() {
   if (!CURSEFORGE_API_KEY) {
-    throw new Error("Missing CURSEDFORGE_API environment variable.");
+    throw new Error("Missing CURSEFORGE_API environment variable.");
   }
 }
 
@@ -200,8 +202,9 @@ async function curseforgeRequest<T>(
     cache: "no-store",
   });
 
-  if (response.status === 429 && retryCount < 1) {
-    await sleep(RETRY_DELAY_MS);
+  if (response.status === 429 && retryCount < 3) {
+    // Exponential backoff: 1s, 2s, 4s
+    await sleep(Math.pow(2, retryCount) * RETRY_DELAY_MS);
     return curseforgeRequest<T>(path, init, retryCount + 1);
   }
 
@@ -333,6 +336,7 @@ export async function getAddon(modId: number): Promise<AddonDetail> {
 
   return {
     ...mapAddonSummary(addon),
+    classId: addon.classId ?? 0,
     description: descriptionResponse.data,
     screenshots: (addon.screenshots || []).map((screenshot) => ({
       id: screenshot.id,

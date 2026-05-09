@@ -2,6 +2,7 @@ import { NextResponse, NextRequest } from "next/server";
 import { getSession } from "@/lib/session";
 import { listWorlds } from "@/lib/host";
 import * as bds from "@/lib/bds";
+import { setRestartPending } from "@/lib/restart-state";
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await getSession();
@@ -51,6 +52,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     const properties = await bds.getProperties(server);
     const worldName = properties["level-name"] || "world";
     const result = await bds.toggleAddon(server, { uuid, worldName, enabled });
+    if (result.success) setRestartPending(id);
 
     return NextResponse.json(result);
   } catch {
