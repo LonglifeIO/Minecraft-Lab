@@ -21,7 +21,7 @@ interface InstalledAddon {
 const fetcher = (url: string) => fetch(url).then((r) => { if (r.status === 401) throw new Error("unauthorized"); return r.json(); });
 
 interface WorldData {
-  status: { online: boolean; players: number; maxPlayers: number; playerList: string[]; version: string; worldName: string; difficulty: string; gamemode: string };
+  status: { online: boolean; players: number; maxPlayers: number; playerList: string[]; version: string; worldName: string; difficulty: string; gamemode: string; hardcore?: boolean };
   allowlist: Array<{ name: string; ignoresPlayerLimit?: boolean }>;
   permissions: Array<{ xuid: string; permission: string }>;
   restartPending?: boolean;
@@ -110,6 +110,27 @@ export default function WorldPage() {
     toast(`Setting difficulty to ${level}...`, "info");
     const result = await action("difficulty", { level });
     if (result?.success) setPendingChange({ type: "Difficulty", value: level });
+  }
+  async function handleHardcore(enabled: boolean) {
+    if (enabled && !confirm("Enable Hardcore Mode? Players who die will be locked to spectator for this world. The server will briefly restart now.")) return;
+    setBusy("hardcore");
+    toast(enabled ? "Enabling hardcore — server is cycling..." : "Disabling hardcore — server is cycling...", "info");
+    try {
+      const res = await fetch(`/api/servers/${id}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "hardcore", enabled }) });
+      const result = await res.json();
+      if (result?.success) {
+        toast(`Hardcore ${enabled ? "enabled" : "disabled"}`, "success");
+      } else {
+        toast(result?.error || "Failed to toggle hardcore", "error");
+      }
+    } catch {
+      toast("Network error toggling hardcore", "error");
+    } finally {
+      setBusy(null);
+      // Give BDS a moment to come back, then refresh status.
+      setTimeout(() => mutate(), 2000);
+      setTimeout(() => mutate(), 6000);
+    }
   }
   async function handleGamerule(rule: string, val: boolean) { setRuleStates(p => ({ ...p, [rule]: val })); await action("command", { command: `gamerule ${rule} ${val}` }); }
   async function handleKick(name: string) { const d = transform(name, "gamertag"); if (!confirm(`Kick ${d}?`)) return; await action("kick", { name }); toast(`${d} kicked`, "success"); }
@@ -276,6 +297,19 @@ export default function WorldPage() {
                   <button key={d} className={`mc-btn flex-1 capitalize text-xs ${status?.difficulty === d ? "mc-btn-active" : ""}`} onClick={() => handleDifficulty(d)} disabled={busy !== null}>{d}</button>
                 ))}
               </div>
+            </div>
+          </div>
+
+          {/* Hardcore Mode */}
+          <div className="mc-dark-panel p-3 mb-4" style={status?.hardcore ? { borderLeft: "3px solid var(--mc-red)" } : undefined}>
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex-1 min-w-0">
+                <div className="mc-section" style={{ marginBottom: 2 }}>Hardcore Mode {status?.hardcore && <span className="mc-red text-[9px] font-bold normal-case tracking-normal ml-1">ACTIVE</span>}</div>
+                <p className="mc-dark-gray" style={{ fontSize: 10 }}>
+                  Locks the world to hard difficulty and forces dead players into spectator. Requires restart to apply.
+                </p>
+              </div>
+              <McToggle on={!!status?.hardcore} onChange={() => handleHardcore(!status?.hardcore)} disabled={busy !== null} />
             </div>
           </div>
 

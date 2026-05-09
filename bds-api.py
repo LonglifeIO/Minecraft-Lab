@@ -147,6 +147,68 @@ def restart_bds():
     subprocess.run(["systemctl", "restart", "bedrock"], timeout=60)
 
 
+# IsHardcore is a TAG_Byte inside level.dat's root compound. Bedrock LE NBT layout:
+# 0x01 (TAG_Byte) | 0x0a 0x00 (LE name length = 10) | "IsHardcore" | <value byte>.
+# We byte-patch the value in place so the file length (in level.dat's 8-byte header) doesn't change.
+_IS_HARDCORE_PAT = b"\x01\x0a\x00IsHardcore"
+
+
+def _level_dat_path():
+    props = read_properties()
+    world = props.get("level-name", "world")
+    return os.path.join(WORLDS_DIR, world, "level.dat")
+
+
+def read_hardcore():
+    path = _level_dat_path()
+    try:
+        with open(path, "rb") as f:
+            data = f.read()
+    except FileNotFoundError:
+        return None
+    i = data.find(_IS_HARDCORE_PAT)
+    if i < 0:
+        return None
+    return data[i + len(_IS_HARDCORE_PAT)] == 1
+
+
+def _patch_level_dat_hardcore(path, enabled):
+    with open(path, "rb") as f:
+        data = bytearray(f.read())
+    i = data.find(_IS_HARDCORE_PAT)
+    if i < 0:
+        raise ValueError("IsHardcore tag not found in level.dat (world may predate hardcore support)")
+    data[i + len(_IS_HARDCORE_PAT)] = 1 if enabled else 0
+    tmp = path + ".tmp"
+    with open(tmp, "wb") as f:
+        f.write(bytes(data))
+    os.replace(tmp, path)
+
+
+def write_hardcore(enabled):
+    path = _level_dat_path()
+    if not os.path.exists(path):
+        raise ValueError("level.dat not found")
+
+    # BDS rewrites level.dat from memory on shutdown, so patching while running
+    # gets clobbered the next time the server stops. Cycle BDS around the patch.
+    was_running = is_running()
+    if was_running:
+        screen_cmd("stop")
+        for _ in range(30):
+            time.sleep(1)
+            if not is_running():
+                break
+        else:
+            raise ValueError("BDS did not stop within 30s; aborting hardcore toggle")
+
+    try:
+        _patch_level_dat_hardcore(path, enabled)
+    finally:
+        if was_running:
+            subprocess.run(["systemctl", "start", "bedrock"], timeout=30)
+
+
 def read_allowlist():
     try:
         with open(os.path.join(BDS_PATH, "allowlist.json")) as f:
@@ -207,6 +269,7 @@ def get_status():
         "worldName": props.get("server-name", "Unknown"),
         "difficulty": props.get("difficulty", "normal"),
         "gamemode": props.get("gamemode", "survival"),
+        "hardcore": read_hardcore() or False,
     }
 
     if running:
@@ -1040,6 +1103,16 @@ class Handler(BaseHTTPRequestHandler):
                 self._json(400, {"error": "invalid difficulty"}); return
             write_property("difficulty", level)
             self._json(200, {"success": True, "difficulty": level})
+
+        elif p == "/hardcore":
+            enabled = bool(body.get("enabled"))
+            try:
+                write_hardcore(enabled)
+            except ValueError as e:
+                self._json(400, {"error": str(e)}); return
+            except Exception as e:
+                self._json(500, {"error": str(e)}); return
+            self._json(200, {"success": True, "hardcore": enabled})
 
         elif p == "/power":
             action = body.get("action", "")

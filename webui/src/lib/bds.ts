@@ -7,10 +7,11 @@ export interface ServerConfig {
 
 const API_TOKEN = process.env.BDS_API_TOKEN || "";
 
-async function bdsRequest(server: ServerConfig, path: string, options?: RequestInit) {
+async function bdsRequest(server: ServerConfig, path: string, options?: RequestInit & { timeoutMs?: number }) {
   const url = `http://${server.host}:${server.apiPort}${path}`;
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 8000);
+  const timeoutMs = options?.timeoutMs ?? 8000;
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
   try {
     const res = await fetch(url, {
       ...options,
@@ -85,6 +86,12 @@ export async function setGamemode(server: ServerConfig, mode: string) {
 
 export async function setDifficulty(server: ServerConfig, level: string) {
   return bdsRequest(server, "/difficulty", { method: "POST", body: JSON.stringify({ level }) });
+}
+
+export async function setHardcore(server: ServerConfig, enabled: boolean) {
+  // Toggling hardcore stops + restarts BDS so the level.dat patch isn't clobbered
+  // by BDS's shutdown-time flush, so this request can take up to ~30s.
+  return bdsRequest(server, "/hardcore", { method: "POST", body: JSON.stringify({ enabled }), timeoutMs: 45000 });
 }
 
 export async function power(server: ServerConfig, action: string) {

@@ -88,6 +88,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         return NextResponse.json(gmResult);
       }
 
+      case "hardcore": {
+        // bds-api cycles BDS itself around the level.dat patch — no restart pending.
+        return NextResponse.json(await bds.setHardcore(server, !!body.enabled));
+      }
+
       case "set_permission":
         if (!isAdmin) return NextResponse.json({ error: "admin access required" }, { status: 403 });
         return NextResponse.json(await setPermission(server, body.name, body.permission));
