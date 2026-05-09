@@ -11,23 +11,23 @@ This document is the original implementation plan that drove the project. It syn
 
 ---
 
-## 1. Conflict Resolution Table
+## 1. Decision Log
 
-| Decision | GPT | Claude | Gemini | Perplexity | **Recommendation** | **Rationale** |
-|----------|-----|--------|--------|------------|---------------------|---------------|
-| **Server Engine** | Nukkit/PowerNukkitX | BDS (official) | BDS (official) | BDS (official) | **BDS** | GPT is wrong. Nukkit/PowerNukkitX cannot natively load Bedrock LevelDB worlds without conversion. BDS is the *only* engine that reads Realms worlds with zero conversion. Vanilla fidelity (redstone, mob AI, world gen) is critical for a Realms replacement. |
-| **Management Panel** | Pterodactyl (primary) or Crafty | Crafty Controller 4 | Pterodactyl (strongly) | Crafty (primary) or Pterodactyl | **Crafty Controller 4** | Pterodactyl requires Docker/Wings, MySQL, Redis, PHP, Nginx — massive overkill for a 2-world family server. It also conflicts with the hard requirement of one LXC container per world (Pterodactyl wants Docker containers). Crafty is open-source, Minecraft-focused, lightweight (Python), has Bedrock support, REST API, role-based access, and backup scheduling. It runs natively without Docker. |
-| **VPN/Tunnel (players)** | Playit.gg or TCPShield | Playit.gg | Playit.gg | Playit.gg | **Playit.gg (free tier)** | Universal agreement. Only free tunnel that natively supports UDP (Bedrock's protocol). Cloudflare Tunnel is HTTP/TCP only. No port forwarding needed. Zero cost on free tier. |
-| **VPN/Tunnel (admin)** | Tailscale | Tailscale | Tailscale | Tailscale | **Tailscale (free personal plan)** | Universal agreement. WireGuard mesh VPN, zero config, 100 devices free. Proxmox/panel access only via Tailscale IPs. |
-| **Console Player Solution** | Dismissive ("focus on PC/mobile") | MCXboxBroadcast + BedrockConnect | BedrockConnect DNS | BedrockConnect / OniionCraft hub | **MCXboxBroadcast (primary) + BedrockConnect (fallback)** | MCXboxBroadcast is the smoothest experience — server appears in the Friends tab on *all* platforms with one-time friend add. BedrockConnect DNS is the fallback for edge cases. GPT's dismissal is unacceptable — console players are a hard requirement. |
-| **Container Architecture** | LXC or VM (vague) | LXC containers | KVM VMs (strongly, due to Docker/T2) | VMs for MC, LXC for tools | **LXC containers (one per world)** | This is your hard requirement. LXC has 1-3% overhead vs 5-10% for VMs. BDS is a native C++ binary — no Docker or JVM needed. The T2 kernel concern Gemini raises is valid for Docker-inside-LXC, but we're running BDS natively in LXC (no Docker), so it's not an issue. Proxmox vzdump snapshots work perfectly with LXC. |
-| **Backup Approach** | Basic cron + rclone | MCscripts + vzdump + rclone→B2 | Pterodactyl backup + PBS + rclone | Crafty backup + vzdump + restic | **MCscripts (app-level) + vzdump (system-level) + rclone (offsite)** | MCscripts is purpose-built for BDS save hold/query/resume — the only safe way to back up LevelDB while running. vzdump per-container gives full system snapshots. rclone to a free tier destination for offsite. |
-| **Custom UI Tech Stack** | React/Vue + Node RCON | Next.js 15 + shadcn/ui + Crafty API | React/Vue + Node.js + Pterodactyl API | React/Svelte + FastAPI/Express + Crafty API | **Next.js + shadcn/ui + Tailwind, backed by Crafty API** | Next.js provides SSR, API routes, and auth in one framework. shadcn/ui + Tailwind gives accessible, mobile-first components. Crafty API as the backend avoids reimplementing process management. SQLite for auth (zero external deps). |
-| **Storage Backend** | Not specified | ext4 + LVM-thin (no ZFS) | ZFS or ext4 | ZFS or ext4 | **ext4 + LVM-thin** | ZFS's ARC cache competes for RAM and its write amplification is rough on consumer SSDs. LVM-thin still provides efficient snapshots. For a family server, ZFS's data integrity benefits don't justify the complexity. |
-| **Reverse Proxy** | Nginx | Caddy | Nginx | Caddy/Nginx | **Caddy** | Automatic HTTPS via Let's Encrypt, zero-config TLS, simpler config syntax than Nginx. Perfect for a small deployment. |
-| **Monitoring** | Prometheus/Grafana | Uptime Kuma + Healthchecks.io | Prometheus/Grafana | Prometheus/Grafana | **Uptime Kuma** | Prometheus/Grafana is overkill for 2 Minecraft servers. Uptime Kuma is lightweight, has a beautiful UI, sends alerts, and monitors services with a single container. |
-| **Offsite Backup Destination** | Google Drive/Dropbox | Backblaze B2 ($0.04-1.20/mo) | Backblaze B2/S3 | Backblaze B2/Wasabi | **Oracle Cloud free tier (10GB Object Storage) or second local machine** | Hard requirement: zero cost. B2 is cheap but not free. Oracle Cloud free tier gives 10GB object storage truly free. Alternatively, rclone to a USB drive or another machine at a different location. If worlds stay under 10GB total, Oracle free tier works. |
-| **Network** | Not addressed | "WiFi unsuitable for server — use Ethernet only" | Not addressed | Not addressed | **Wired Ethernet** | The host should be wired in. WiFi reliability is a poor fit for a game server. Most x86-64 hosts have Gigabit Ethernet that works out of the box on Debian/Proxmox. |
+| Decision | **Choice** | **Rationale** |
+|----------|------------|---------------|
+| **Server Engine** | **BDS (official Bedrock Dedicated Server)** | The only engine that natively reads Realms LevelDB worlds with zero conversion. Alternatives like Nukkit/PowerNukkitX require conversion and lose vanilla fidelity (redstone, mob AI, world gen). |
+| **Management Panel** | **None — custom Next.js UI** *(Crafty Controller was evaluated)* | Pterodactyl requires Docker/Wings, MySQL, Redis, PHP, Nginx — massive overkill for a small server. Crafty was the leading panel candidate (Python, Bedrock support, REST API) but ultimately a custom UI with a thin BDS wrapper API was lighter and gave more control. |
+| **VPN/Tunnel (players)** | **Playit.gg (free tier)** | Only free tunnel that natively supports UDP (Bedrock's protocol). Cloudflare Tunnel is HTTP/TCP only. No port forwarding needed. |
+| **VPN/Tunnel (admin)** | **Tailscale (free personal plan)** | WireGuard mesh VPN, zero config, 100 devices free. Proxmox/panel access only via Tailscale IPs. |
+| **Console Player Solution** | **Out of scope** *(see disclaimer above)* | Workarounds exist but rely on Microsoft accounts broadcasting the server as a "friend's game session" — gray-area territory under Xbox Services terms. Not officially supported in this project. |
+| **Container Architecture** | **LXC containers (one per world)** | LXC has 1–3% overhead vs 5–10% for VMs. BDS is a native C++ binary — no Docker or JVM needed. Proxmox `vzdump` snapshots work perfectly with LXC. T2 Mac concerns about Docker-inside-LXC don't apply since BDS runs natively. |
+| **Backup Approach** | **MCscripts (app-level) + vzdump (system-level) + rclone (offsite)** | MCscripts is purpose-built for BDS `save hold` / `save query` / `save resume` — the only safe way to back up LevelDB while running. vzdump per-container gives full system snapshots. rclone handles offsite. |
+| **Custom UI Tech Stack** | **Next.js + Tailwind, backed by a custom BDS wrapper API** | Next.js provides SSR, API routes, and auth in one framework. Tailwind gives accessible, mobile-first components. Custom Python BDS wrapper avoids the panel-software bloat while exposing exactly the surface the UI needs. |
+| **Storage Backend** | **ext4 + LVM-thin** | ZFS's ARC cache competes for RAM and its write amplification is rough on consumer SSDs. LVM-thin still provides efficient snapshots. ZFS's data integrity benefits don't justify the complexity for a small server. |
+| **Reverse Proxy** | **Caddy** | Automatic HTTPS via Let's Encrypt, zero-config TLS, simpler config syntax than Nginx. |
+| **Monitoring** | **Uptime Kuma** | Prometheus/Grafana is overkill for a few Minecraft servers. Uptime Kuma is lightweight, has a beautiful UI, sends alerts, and monitors services with a single container. |
+| **Offsite Backup Destination** | **Oracle Cloud free tier (10GB Object Storage), or USB drive / second local machine** | Free tier wins on cost. If worlds stay under 10GB, Oracle's truly-free tier is fine; otherwise an external drive at a different location works. Backblaze B2 is the cheapest paid option (~$1/mo). |
+| **Network** | **Wired Ethernet** | WiFi reliability is a poor fit for a game server. Most x86-64 hosts have Gigabit Ethernet that works out of the box on Debian/Proxmox. |
 
 ---
 
@@ -113,14 +113,14 @@ All services run in **unprivileged LXC containers** on the internal bridge netwo
                               │ (no inbound ports needed on router)
                               ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│              MAC MINI — PROXMOX VE 9.1                           │
+│              HOST — PROXMOX VE 9.x                                │
 │              (Wired Ethernet to home router)                      │
 │                                                                  │
 │  ┌─────────────────────────────────────────┐                     │
-│  │ Proxmox Host (Debian + T2 kernel)       │                     │
-│  │ • Tailscale (100.x.y.z mesh VPN)        │◄── Admin traffic    │
+│  │ Proxmox Host (Debian-based)             │                     │
+│  │ • Tailscale mesh VPN                    │◄── Admin traffic    │
 │  │ • vzdump backup scheduler               │    (Proxmox UI,     │
-│  │ • mbpfan (thermal management)           │     SSH, all mgmt)  │
+│  │ • Optional: thermal / kernel tuning     │     SSH, all mgmt)  │
 │  └────────────────┬────────────────────────┘                     │
 │                   │ vmbr0 bridge (10.0.0.0/24)                   │
 │    ┌──────────────┼──────────────────────────────┐               │
@@ -851,8 +851,8 @@ cat /sys/devices/platform/applesmc.768/fan*_output
 
 **Step 1.3: Configure Ethernet networking**
 ```bash
-# The the host's built-in Broadcom BCM57766 Gigabit Ethernet works
-# out of the box via the tg3 driver. Verify:
+# Most x86-64 hosts have a Gigabit Ethernet adapter that works out of
+# the box on Debian. Verify:
 ip link show
 # Should show an interface like enp3s0f0 or ens5
 

@@ -24,6 +24,10 @@ research/
 move-day.md
 deploy
 migrate-ips.sh
+# Catch-all for personal helper notes (scp commands, ad-hoc snippets)
+scp-*.md
+notes-*.md
+*.local.md
 
 # --- World saves & binaries (NEVER commit) ---
 REALMS/
