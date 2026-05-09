@@ -24,7 +24,7 @@ MinecraftLab is a **self-hosted Realms replacement** that gives you the Realms e
 - **Web dashboard** — mobile-friendly, role-based (admin/moderator), zero command-line for daily use
 - **CurseForge addon library** — browse 6,000+ Bedrock-native add-ons, install with one click, save favourites
 - **Realms-style settings** — gamemode, difficulty, and gamerule toggles with deferred-restart prompts
-- **PS5 / Xbox player support** — MCXboxBroadcast bridges to the Friends tab; players join with a tap
+- **PS / Xbox player support** — optional community workaround that surfaces the server through the Friends tab (see Architecture for caveats)
 - **Auto-update** — hourly version check + 12-hour backup-and-update sweep, both skip worlds with players online
 - **Manual update button** — admin-only "Check for Updates" trigger for emergencies
 - **Safe LevelDB backups** — uses BDS `save hold` / `save query` / `save resume` protocol
@@ -34,53 +34,34 @@ MinecraftLab is a **self-hosted Realms replacement** that gives you the Realms e
 ## Architecture
 
 ```mermaid
-graph TB
-    Player[PS5 / Xbox / Mobile / PC]
-    Admin[Admin Browser]
+flowchart LR
+    Admin([Admin browser])
+    Player([Players<br/>PC / Mobile / PS / Xbox])
 
-    Player -- "Friends Tab" --> Broadcast
-    Player -- "UDP 19132" --> Tunnel
-    Admin -- "HTTPS" --> WebUI
+    subgraph Proxmox["Proxmox VE host"]
+        WebUI["Web UI<br/>(Next.js)"]
+        HostAPI["host-api.py<br/>:8090"]
+        Tunnel["Player tunnel<br/>(Playit.gg)"]
 
-    subgraph Proxmox["Proxmox VE Host"]
-        HostAPI[host-api.py<br/>Container lifecycle + updates]
-
-        subgraph CT103["CT 103: Web UI"]
-            WebUI[Next.js 16<br/>Tailwind v4]
+        subgraph Worlds["World containers (one per world)"]
+            World["bedrock_server<br/>+ bds-api.py :8080"]
         end
-
-        subgraph CT105["CT 105: Tunnel"]
-            Tunnel[Playit.gg agent]
-            Broadcast[MCXboxBroadcast<br/>Xbox Live session]
-        end
-
-        subgraph World1["CT 100: World 1"]
-            BDS1[bedrock_server]
-            API1[bds-api.py]
-        end
-
-        subgraph WorldN["CT N: World N"]
-            BDSN[bedrock_server]
-            APIN[bds-api.py]
-        end
-
-        WebUI -- "HTTP :8090" --> HostAPI
-        WebUI -- "HTTP :8080" --> API1
-        WebUI -- "HTTP :8080" --> APIN
-        HostAPI -- "pct exec/start/stop" --> CT103
-        HostAPI -- "pct exec/start/stop" --> World1
-        HostAPI -- "pct exec/start/stop" --> WorldN
-        Tunnel -- "UDP 19132" --> BDS1
-        Broadcast -- "Friends → Join" --> BDS1
-        API1 -- "screen stdin/stdout" --> BDS1
-        APIN -- "screen stdin/stdout" --> BDSN
     end
+
+    Admin -->|HTTPS| WebUI
+    Player -->|UDP 19132| Tunnel
+    Tunnel --> World
+    WebUI -->|REST| HostAPI
+    WebUI -->|REST| World
+    HostAPI -->|pct exec/start/stop| World
 ```
 
 **Three-tier API:**
 1. **`host-api.py`** (Proxmox host) — container lifecycle, world creation, BDS updates. Calls `pct` directly.
 2. **`bds-api.py`** (per world) — server status, gamemode, difficulty, addons, allowlist. Talks to BDS via `screen` stdin.
 3. **Next.js webui** — server-side API routes proxy to both APIs with shared bearer token.
+
+> **Console-player support:** PS / Xbox players can join via a community-built workaround that surfaces the server through Xbox Live's Friends tab. It works well in practice, but it sits in a gray area of Microsoft's Xbox Services terms (it requires a Microsoft account that broadcasts the server as a "friend's game"). MinecraftLab does **not** ship or document this workaround — if you want it for your family, the open-source tools to do it are easy to find, but evaluate the trade-offs yourself.
 
 ## Screenshots
 
@@ -98,7 +79,7 @@ graph TB
 | Auth | iron-session encrypted cookies, role-based (admin/moderator/viewer) |
 | Hypervisor | Proxmox VE 9 (LXC containers, vzdump backups) |
 | Addon source | CurseForge API (gameId 78022 = Bedrock) |
-| Console support | MCXboxBroadcast (Xbox Live broadcast as fake friend) |
+| Console support | Optional Friends-tab workaround (not bundled) |
 | Player tunnel | Playit.gg (UDP, no port forwarding) |
 | Admin VPN | Tailscale |
 
@@ -131,7 +112,7 @@ See [`docs/SETUP.md`](docs/SETUP.md) for the full guide. The TL;DR:
 3. Run `host-api.py` on the Proxmox host as a systemd service (port 8090)
 4. Provision a webui container (Debian 12, Node 20), deploy the Next.js app
 5. Configure `.env.local` with your bearer token and host-api URL
-6. Optional: set up Playit.gg (player tunnel), Tailscale (admin VPN), MCXboxBroadcast (console support)
+6. Optional: set up Playit.gg (player tunnel), Tailscale (admin VPN)
 
 ## API reference
 

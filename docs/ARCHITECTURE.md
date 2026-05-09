@@ -1,9 +1,13 @@
-# Minecraft Bedrock Server Platform — Unified Implementation Plan
+# Architecture Decision Record
 
-**Date:** 2026-03-16
-**Hardware:** Mac Mini 2019 (i7-8700B, 64GB RAM, Apple NVMe, T2 chip)
-**Host OS:** Proxmox VE 9.1 (already installed)
-**Network:** Wired Ethernet at deployment location. During initial setup: Ethernet tethered to desktop PC.
+This document is the original implementation plan that drove the project. It synthesizes research from multiple sources into a single set of decisions, with rationale for each. Read this if you want to understand *why* MinecraftLab is built the way it is, not *how* to deploy it (see [SETUP.md](SETUP.md) for that).
+
+**Reference target:**
+- Hypervisor: Proxmox VE 9.x
+- Host: any spare x86-64 box with 4+ cores, 8GB+ RAM, wired Ethernet
+- Workload: small-group Bedrock server (2–4 worlds, <10 concurrent players)
+
+> ⚠️ **A note on console-player support.** This document includes detailed plans for a community-built workaround (MCXboxBroadcast) that surfaces self-hosted servers in the Xbox Live Friends tab so PS / Xbox clients can join. The technique works, but it requires running a Microsoft account that broadcasts the server as a "friend's game session," which sits in a gray area of Microsoft's Xbox Services terms. **The current public deployment guide (SETUP.md) intentionally does not document this workaround.** The content remains here for historical and educational value — if you choose to use it, evaluate the terms-of-service implications yourself.
 
 ---
 
@@ -23,7 +27,7 @@
 | **Reverse Proxy** | Nginx | Caddy | Nginx | Caddy/Nginx | **Caddy** | Automatic HTTPS via Let's Encrypt, zero-config TLS, simpler config syntax than Nginx. Perfect for a small deployment. |
 | **Monitoring** | Prometheus/Grafana | Uptime Kuma + Healthchecks.io | Prometheus/Grafana | Prometheus/Grafana | **Uptime Kuma** | Prometheus/Grafana is overkill for 2 Minecraft servers. Uptime Kuma is lightweight, has a beautiful UI, sends alerts, and monitors services with a single container. |
 | **Offsite Backup Destination** | Google Drive/Dropbox | Backblaze B2 ($0.04-1.20/mo) | Backblaze B2/S3 | Backblaze B2/Wasabi | **Oracle Cloud free tier (10GB Object Storage) or second local machine** | Hard requirement: zero cost. B2 is cheap but not free. Oracle Cloud free tier gives 10GB object storage truly free. Alternatively, rclone to a USB drive or another machine at a different location. If worlds stay under 10GB total, Oracle free tier works. |
-| **Network** | Not addressed | "WiFi unsuitable for server — use Ethernet only" | Not addressed | Not addressed | **Wired Ethernet** | The Mac Mini will be wired in at the deployment location. During initial setup it's Ethernet-tethered to a desktop PC. This eliminates WiFi reliability concerns entirely. The Mac Mini 2019's Broadcom BCM57766 Gigabit adapter works out of the box via the `tg3` driver. |
+| **Network** | Not addressed | "WiFi unsuitable for server — use Ethernet only" | Not addressed | Not addressed | **Wired Ethernet** | The host should be wired in. WiFi reliability is a poor fit for a game server. Most x86-64 hosts have Gigabit Ethernet that works out of the box on Debian/Proxmox. |
 
 ---
 
@@ -72,7 +76,7 @@ All services run in **unprivileged LXC containers** on the internal bridge netwo
 
 **Notes:**
 - BDS uses ~200-400MB idle, ~1-2GB under active play. 2GB per container provides ample headroom.
-- CPU: i7-8700B has 6 cores / 12 threads. 10 allocated cores is fine with hyperthreading.
+- CPU: A 6-core / 12-thread CPU. 10 allocated cores is fine with hyperthreading.
 - Additional world containers can be cloned from a template (see Phase 2).
 - Tailscale runs on the Proxmox host directly (not in a container).
 - Playit.gg agent runs in its own container and connects to BDS containers via internal network.
@@ -455,7 +459,7 @@ cat > /etc/cron.d/offsite-backup << 'EOF'
 EOF
 ```
 
-**Option B: USB Drive (attached to Mac Mini)**
+**Option B: USB Drive (attached to the host)**
 ```bash
 # Mount USB drive
 mkdir -p /mnt/usb-backup
@@ -847,7 +851,7 @@ cat /sys/devices/platform/applesmc.768/fan*_output
 
 **Step 1.3: Configure Ethernet networking**
 ```bash
-# The Mac Mini 2019's built-in Broadcom BCM57766 Gigabit Ethernet works
+# The the host's built-in Broadcom BCM57766 Gigabit Ethernet works
 # out of the box via the tg3 driver. Verify:
 ip link show
 # Should show an interface like enp3s0f0 or ens5
@@ -857,7 +861,7 @@ ip link show
 # Verify connectivity:
 ping -c 3 google.com
 
-# At deployment (wired to router at stepfather's house):
+# At deployment (wired to router at deployment location):
 # Update /etc/network/interfaces if the subnet differs:
 # Example:
 cat /etc/network/interfaces
@@ -1672,7 +1676,7 @@ EOF
 
 | Gap | Impact | Mitigation |
 |-----|--------|------------|
-| **Initial setup networking (tethered to desktop)** | Low. During setup the Mac Mini is Ethernet-tethered to a desktop PC rather than directly to a router. At deployment it will be wired to the router. | Ensure the desktop PC is sharing its internet connection (ICS on Windows or internet sharing on macOS). At deployment, update `/etc/network/interfaces` with the correct subnet/gateway for the stepfather's router. |
+| **Initial setup networking (tethered to desktop)** | Low. During setup the host is Ethernet-tethered to a desktop PC rather than directly to a router. At deployment it will be wired to the router. | Ensure the desktop PC is sharing its internet connection (ICS on Windows or internet sharing on macOS). At deployment, update `/etc/network/interfaces` with the correct subnet/gateway for the deployment router. |
 | **MCXboxBroadcast auth token expiration** | Medium. Microsoft auth tokens expire. MCXboxBroadcast needs periodic re-authentication. | Monitor MCXboxBroadcast logs, set up Uptime Kuma alert, re-auth when needed. |
 | **Playit.gg free tier limitations and reliability** | Medium. If Playit.gg has outages or changes free tier terms, players can't connect. | Monitor uptime. Have WireGuard + VPS relay as Plan B (Oracle Cloud free tier VPS). |
 | **BDS auto-update vs client auto-update race condition** | Medium. If Minecraft clients auto-update before BDS releases a matching version, players can't connect for days. | Pin BDS version with MCscripts `version_pin.txt`. Instruct players to disable auto-updates. Keep a pre-update Proxmox snapshot. |
@@ -1685,7 +1689,7 @@ EOF
 
 | Risk | Likelihood | Impact | Mitigation |
 |------|-----------|--------|------------|
-| **Network config mismatch when moving to deployment** | Low | Medium | Document the stepfather's router subnet in advance. Update `/etc/network/interfaces` and container IPs before transport. Test Tailscale access immediately after plugging in. |
+| **Network config mismatch when moving to deployment** | Low | Medium | Document the deployment router subnet in advance. Update `/etc/network/interfaces` and container IPs before transport. Test Tailscale access immediately after plugging in. |
 | **Realm world migration loses data** | Medium | High | Follow DB-only method exactly. Have all players dump inventory to chests first. Keep original .mcworld export as backup. |
 | **T2 kernel breaks on Proxmox update** | Medium | High | Pin kernel version. Snapshot before any system update. |
 | **Custom web UI development takes longer than expected** | High | Medium | Start with a minimal viable UI (just start/stop/status). Add features incrementally. Consider using Crafty's built-in UI for initial go-live. |
@@ -1702,7 +1706,7 @@ EOF
 | Console access | MCXboxBroadcast | BedrockConnect DNS redirect |
 | Network connection | Wired Ethernet (built-in Gigabit) | USB Ethernet adapter if onboard NIC fails |
 | Management panel | Crafty Controller | Custom wrapper API per container (Node.js, minimal) |
-| Offsite backup | Oracle Cloud free tier | USB drive attached to Mac Mini |
+| Offsite backup | Oracle Cloud free tier | USB drive attached to the host |
 | Custom web UI | Next.js custom app | Crafty's built-in web UI with restricted roles |
 | Fan control | mbpfan | Manual fan speed via `echo` to `/sys/devices/platform/applesmc.768/fan*_manual` |
 | BDS (if it lags) | BDS with current settings | Reduce view-distance to 8, tick-distance to 3 |

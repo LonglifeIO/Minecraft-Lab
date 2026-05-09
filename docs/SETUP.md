@@ -231,34 +231,19 @@ Add:
 
 ---
 
-## 5. Optional: Console player support (MCXboxBroadcast)
+## 5. Optional: Console (PS / Xbox) player support
 
-Create CT 105 (Debian 12, 1GB RAM, 1 core), install Java 21:
+Out of the box, MinecraftLab supports PC and mobile clients connecting to your server's IP:port directly. PlayStation and Xbox clients can't enter custom server addresses — they only join through the in-game Friends tab.
 
-```bash
-pct exec 105 -- bash <<'EOF'
-apt update && apt install -y openjdk-21-jre-headless wget
-mkdir -p /opt/mcxboxbroadcast
-cd /opt/mcxboxbroadcast
-wget -O MCXboxBroadcast.jar \
-  https://github.com/MCXboxBroadcast/Broadcaster/releases/latest/download/MCXboxBroadcastStandalone.jar
-EOF
-```
+There are community-built workarounds that bridge a self-hosted server into the Friends tab so consoles can join. They generally require running a Microsoft account on a side service that broadcasts your server as a "friend's game session." This works in practice, but it sits in a gray area of Microsoft's Xbox Services terms — it's not officially supported and your account could be flagged.
 
-Run once interactively to authenticate with a throwaway Microsoft account that all players will friend:
-
-```bash
-pct exec 105 -- java -jar /opt/mcxboxbroadcast/MCXboxBroadcast.jar
-# Follow the device-code login prompt
-```
-
-Edit `/opt/mcxboxbroadcast/config.yml` to point at your server's external IP/port, then create a systemd unit and enable it.
+**MinecraftLab does not bundle, link to, or document a specific implementation of this workaround.** If you need console support, the open-source ecosystem has options — research them yourself and decide whether the trade-offs are acceptable for your use case.
 
 ---
 
 ## 6. Optional: Playit.gg tunnel (zero port forwarding)
 
-Install the Playit agent in CT 105 alongside MCXboxBroadcast — it gives your server a public address with no router config. See [playit.gg/docs](https://playit.gg/docs).
+Install the Playit agent in a small container (Debian 12, 1GB RAM, 1 core) — it gives your server a public address with no router config. See [playit.gg/docs](https://playit.gg/docs).
 
 ---
 
@@ -282,6 +267,6 @@ Install the Playit agent in CT 105 alongside MCXboxBroadcast — it gives your s
 - Mojang's CDN requires a User-Agent. The included scripts use `-A "Mozilla/5.0"` — if you wrote your own, add it.
 
 **Players can't connect after BDS update**
-- MCXboxBroadcast advertises a Bedrock version. After updating BDS, also update MCXboxBroadcast to a build that matches.
+- If you're using a console-bridge workaround, it advertises its own Bedrock protocol version. After updating BDS, you'll need to update that bridge too or console clients will see a version mismatch.
 
 See [ARCHITECTURE.md](ARCHITECTURE.md) for the full design rationale.
