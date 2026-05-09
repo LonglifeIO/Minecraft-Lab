@@ -157,6 +157,6 @@ Active hobby project. Used in production by a small group of family players. Ope
 
 ## License
 
-[MIT](LICENSE) — do anything you want, no warranty.
+Released under the [MIT License](LICENSE).
 
 This project is independent and not affiliated with, endorsed by, or associated with Mojang Studios or Microsoft. *Minecraft* is a trademark of Mojang Studios.
