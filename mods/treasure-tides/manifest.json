@@ -1,0 +1,25 @@
+{
+  "format_version": 2,
+  "header": {
+    "name": "Treasure Tides",
+    "description": "Random treasure chests fall near online players every 12-22 minutes. Race to grab them before they vanish.",
+    "uuid": "aeff7507-143c-42d9-8e98-f6d260c25a70",
+    "version": [1, 5, 0],
+    "min_engine_version": [1, 21, 0]
+  },
+  "modules": [
+    {
+      "type": "script",
+      "language": "javascript",
+      "entry": "scripts/main.js",
+      "uuid": "f602133d-1cfb-4272-b8c9-d737d9424848",
+      "version": [1, 0, 0]
+    }
+  ],
+  "dependencies": [
+    {
+      "module_name": "@minecraft/server",
+      "version": "1.13.0"
+    }
+  ]
+}

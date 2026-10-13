@@ -1,0 +1,25 @@
+{
+  "format_version": 2,
+  "header": {
+    "name": "Family Compass",
+    "description": "Greet family members and find each other across the realm",
+    "uuid": "219c1866-cf50-4203-be2e-4fa9edc5dd6c",
+    "version": [1, 2, 0],
+    "min_engine_version": [1, 21, 0]
+  },
+  "modules": [
+    {
+      "type": "script",
+      "language": "javascript",
+      "entry": "scripts/main.js",
+      "uuid": "4c685d71-e68a-4dd8-a6e1-b971739c49b1",
+      "version": [1, 0, 0]
+    }
+  ],
+  "dependencies": [
+    {
+      "module_name": "@minecraft/server",
+      "version": "1.13.0"
+    }
+  ]
+}
