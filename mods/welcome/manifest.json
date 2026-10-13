@@ -1,0 +1,41 @@
+{
+  "format_version": 2,
+  "header": {
+    "name": "Welcome",
+    "description": "One friendly welcome box per player, shown after Origins' class pick (if installed). Quiets other add-ons' first-join pop-ups. Type !welcome in chat to see it again.",
+    "uuid": "4d56d3a2-a104-4b5a-bc42-76c5840ef66d",
+    "version": [
+      1,
+      0,
+      0
+    ],
+    "min_engine_version": [
+      1,
+      21,
+      0
+    ]
+  },
+  "modules": [
+    {
+      "type": "script",
+      "language": "javascript",
+      "entry": "scripts/main.js",
+      "uuid": "c258424d-9905-40d0-9025-c5b35ad8eee0",
+      "version": [
+        1,
+        0,
+        0
+      ]
+    }
+  ],
+  "dependencies": [
+    {
+      "module_name": "@minecraft/server",
+      "version": "2.0.0"
+    },
+    {
+      "module_name": "@minecraft/server-ui",
+      "version": "2.0.0"
+    }
+  ]
+}
