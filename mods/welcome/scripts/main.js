@@ -29,6 +29,51 @@ const TIPS = [
   "Type §a!welcome§r in chat to see this box again.",
   "This world restarts now and then when add-ons change. If it's not in the LAN list afterwards, join it by address once.",
 ];
+// Every origin in Origins BE 1.5.5, from its own text files (names and blurbs), grouped by pack.
+const ORIGINS = [
+  ["Classic", "Arachnid", "Climbs and traps foes in cobweb: a perfect hunter."],
+  ["Classic", "Avian", "Lost the ability to fly long ago; now glides from place to place."],
+  ["Classic", "Blazeborn", "Descended from the Blaze; naturally immune to the perils of the Nether."],
+  ["Classic", "Elytrian", "Flies on the winds; uncomfortable without enough space overhead."],
+  ["Classic", "Enderian", "Child of the Ender Dragon: can teleport, but is vulnerable to water."],
+  ["Classic", "Feline", "Cat-like: scares creepers away and always lands safely on its feet."],
+  ["Classic", "Human", "A regular human. Your ordinary Minecraft experience awaits."],
+  ["Classic", "Merling", "A natural inhabitant of the ocean; can't stay out of water for long."],
+  ["Classic", "Phantom", "Half human, half phantom; can switch between the two forms."],
+  ["Classic", "Shulk", "Related to Shulkers, with a protective shell-like skin."],
+  ["Extra", "Bee", "A little honey maker with small wings but a big love for flowers."],
+  ["Extra", "Beetle", "Smaller than humans, larger than beetles, and quite the armor."],
+  ["Extra", "Blighter", "Born of the Pale Garden; brings a gloomy, uncomfortable presence."],
+  ["Extra", "Cow", "A beefy cow that eats bread and produces milk."],
+  ["Extra", "Dire Wolf", "A natural born hunter with a craving for meat; nothing stops it devouring its next meal."],
+  ["Extra", "Fallen Angel", "A failure of the Aether, fallen from a former standing."],
+  ["Extra", "Feral Wolfwalker", "Looks human, but beware the wolf hiding in sheep's clothing. The wilder one."],
+  ["Extra", "Fox", "Dwells around settlements waiting for treasure to be left unguarded. Weak, but hides extremely well and escapes most danger with ease."],
+  ["Extra", "Frogling", "A strange humanoid frog. Smells like swamp water."],
+  ["Extra", "Ghastling", "Is it a balloon? No, it's a Ghastling!"],
+  ["Extra", "Goat", "Roams, climbs mountains and defends itself with its horns."],
+  ["Extra", "Krakkling", "Trench-dwelling creatures of myth, said to descend from a legendary kraken."],
+  ["Extra", "Looshian", "Said to be the common ancestor of almost all Origins; extremely rare."],
+  ["Extra", "Pufferfish", "A small fish that may get toxic if it blows up."],
+  ["Extra", "Rabbit", "A fast and hard working rabbit."],
+  ["Extra", "Raccoon Lord", "The lord of all the raccoons."],
+  ["Extra", "Ravager", "Big and slow, hits hard and lives for combat."],
+  ["Extra", "Redstone Bug", "Anyone who has dealt with redstone can tell you of its annoying bugs."],
+  ["Extra", "Sheep", "A sheep with a wool growth problem."],
+  ["Extra", "Slime", "A slime that has evolved into the shape of a human. Very unpleasant to touch."],
+  ["Extra", "Snow Dude", "The chillest guy you will ever meet, and not just because it's made of snow."],
+  ["Extra", "Starborne", "Born from the stars: nonviolent, star-obsessed, mysterious and potentially powerful."],
+  ["Extra", "Strider", "A peaceful, lava-walking creature that loves warped fungus and dislikes being cold."],
+  ["Extra", "TMOTD", "The Monster of the Depths was long forgotten, but now it rains terror in the sea."],
+  ["Extra", "Tame Wolfwalker", "Looks human, but beware the wolf hiding in sheep's clothing."],
+  ["Extra", "Twin Sporeling", "Mutated nether fungi come to life, with some interesting abilities."],
+  ["Extra", "Witherin", "A long-dead skeleton that has mastered stone tools."],
+  ["Weppl's", "Duck", "Peace was never an option."],
+  ["Weppl's", "Llama", "A llama that can spit long range and be ridden places."],
+  ["Weppl's", "The Cute One", "The cutest of them all."],
+  ["Weppl's", "Troll", "A griefer, thief, and master escapist."],
+];
+const ORIGINS_PER_PAGE = 7;
 // Other add-ons whose first-join pop-ups we quiet. Each one is a known flag the add-on itself sets
 // after showing its box; setting it first means the box never appears.
 const QUIET_OTHER_FIRST_JOIN_BOXES = true;
@@ -71,7 +116,137 @@ function quietOtherFirstJoinBoxes(player) {
   try {
     player.addTag("farmersdelight");
   } catch {}
+  // Effortless Building's "Quick Setup" (device tier) runs until this flag is set; the defaults it
+  // would keep are the same ones "Skip" keeps, and Settings offers it again later.
+  try {
+    if (player.getDynamicProperty("eb:onboarded") === undefined) {
+      player.setDynamicProperty("eb:onboarded", true);
+    }
+  } catch {}
 }
+
+// playerJoin fires before the first spawn, so flags set here beat the other packs' spawn handlers.
+world.afterEvents.playerJoin.subscribe(({ playerId }) => {
+  let tries = 0;
+  const poll = system.runInterval(() => {
+    tries += 1;
+    let player = null;
+    try {
+      player = world.getPlayers().find((p) => p.id === playerId) ?? null;
+    } catch {}
+    if (player) {
+      quietOtherFirstJoinBoxes(player);
+      system.clearRun(poll);
+    } else if (tries > 200) {
+      system.clearRun(poll);
+    }
+  }, 1);
+});
+
+function markSeen(player) {
+  try {
+    player.setDynamicProperty(SEEN, true);
+  } catch {}
+}
+
+function originName(player) {
+  // Origins tags the player "origins:selected_<name>" next to the generic "origins:selected_origin".
+  try {
+    const tag = player.getTags().find((t) => t.startsWith("origins:selected_") && t !== "origins:selected_origin");
+    if (!tag) return null;
+    return tag.slice("origins:selected_".length).replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+  } catch {
+    return null;
+  }
+}
+
+function bodyText(player) {
+  const origin = originName(player);
+  const who = origin ? `§lHi ${player.name}, the ${origin}!§r` : `§lHi ${player.name}!§r`;
+  return `${who}\n\n${INTRO}\n\nPick a button to look around, or jump straight in.`;
+}
+
+async function showList(player, title, rows) {
+  const form = new ActionFormData().title(title);
+  const text = rows.map(([name, desc]) => `§e§l${name}§r\n${desc}`).join("\n\n");
+  form.body(text).button("Back");
+  await form.show(player);
+}
+
+async function showOriginsGuide(player, page = 0) {
+  const pages = Math.ceil(ORIGINS.length / ORIGINS_PER_PAGE);
+  const rows = ORIGINS.slice(page * ORIGINS_PER_PAGE, (page + 1) * ORIGINS_PER_PAGE);
+  const text = rows.map(([pack, name, desc]) => `§e§l${name}§r §8(${pack})§r\n${desc}`).join("\n\n");
+  const form = new ActionFormData()
+    .title(`Origins guide  ${page + 1}/${pages}  (${ORIGINS.length} origins)`)
+    .body(`§7In the picker, use < and > to move through them, then Select. An Orb of Origin lets you change later.§r\n\n${text}`);
+  const buttons = [];
+  if (page + 1 < pages) buttons.push(["Next page", () => showOriginsGuide(player, page + 1)]);
+  if (page > 0) buttons.push(["Previous page", () => showOriginsGuide(player, page - 1)]);
+  buttons.push(["Back to welcome", () => showMain(player)]);
+  for (const [label] of buttons) form.button(label);
+  let response;
+  try {
+    response = await form.show(player);
+  } catch {
+    return;
+  }
+  if (response.canceled) return;
+  const pick = buttons[response.selection];
+  if (pick) await pick[1]();
+}
+
+async function showMain(player, attempt = 0) {
+  if (!isValid(player)) return;
+  const buttons = [
+    ["What's in this world", async () => { await showList(player, "What's in this world", FEATURES); return showMain(player); }],
+    ["Tips", async () => { await showList(player, "Tips", TIPS.map((t) => ["Tip", t])); return showMain(player); }],
+  ];
+  if (originsInstalled()) buttons.push([`Origins guide (${ORIGINS.length})`, () => showOriginsGuide(player)]);
+  buttons.push(["Let's play!", () => {
+    markSeen(player);
+    try {
+      player.playSound("random.levelup");
+      player.onScreenDisplay.setTitle(`§aHave fun, ${player.name}!`, { fadeInDuration: 5, stayDuration: 40, fadeOutDuration: 15 });
+    } catch {}
+  }]);
+  const form = new ActionFormData().title(TITLE).body(bodyText(player));
+  for (const [label] of buttons) form.button(label);
+  let response;
+  try {
+    response = await form.show(player);
+  } catch {
+    return;
+  }
+  if (response.canceled) {
+    // Another box is open (Origins, a chest, a menu): try again shortly instead of giving up.
+    if (response.cancelationReason === FormCancelationReason.UserBusy && attempt < BUSY_RETRIES) {
+      system.runTimeout(() => showMain(player, attempt + 1), BUSY_RETRY_TICKS);
+      return;
+    }
+    markSeen(player); // closed on purpose: don't nag, !welcome brings it back
+    return;
+  }
+  const pick = buttons[response.selection];
+  if (pick) await pick[1]();
+}
+
+world.afterEvents.playerJoin.subscribe(({ playerId }) => {
+  let tries = 0;
+  const poll = system.runInterval(() => {
+    tries += 1;
+    let player = null;
+    try {
+      player = world.getPlayers().find((p) => p.id === playerId) ?? null;
+    } catch {}
+    if (player) {
+      quietOtherFirstJoinBoxes(player);
+      system.clearRun(poll);
+    } else if (tries > 200) {
+      system.clearRun(poll);
+    }
+  }, 1);
+});
 
 function markSeen(player) {
   try {
@@ -165,10 +340,10 @@ world.afterEvents.playerSpawn.subscribe(({ player, initialSpawn }) => {
   }, POLL_TICKS);
 });
 
-// "!welcome" in chat re-opens the box for that player and is never shown to others.
-world.beforeEvents.chatSend.subscribe((event) => {
+// "!welcome" in chat re-opens the box for that player. (The stable 2.0 API has no before-event for
+// chat, so the message itself still shows; it's harmless.)
+world.afterEvents.chatSend.subscribe((event) => {
   if (event.message.trim().toLowerCase() !== "!welcome") return;
-  event.cancel = true;
   const player = event.sender;
   system.run(() => showMain(player));
 });
