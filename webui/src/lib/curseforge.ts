@@ -309,7 +309,8 @@ export async function searchAddons(params: SearchParams = {}): Promise<SearchRes
   if (typeof params.sortField === "number") {
     searchParams.set("sortField", String(params.sortField));
   }
-  searchParams.set("sortOrder", params.sortOrder ?? "desc");
+  // Name (sortField 4) reads A→Z; everything else is "most first"
+  searchParams.set("sortOrder", params.sortOrder ?? (params.sortField === 4 ? "asc" : "desc"));
 
   const response = await curseforgeRequest<CurseForgeMod[]>(
     `/v1/mods/search?${searchParams.toString()}`,
@@ -337,7 +338,7 @@ export async function getAddon(modId: number): Promise<AddonDetail> {
   return {
     ...mapAddonSummary(addon),
     classId: addon.classId ?? 0,
-    description: descriptionResponse.data,
+    description: sanitizeHtml(descriptionResponse.data),
     screenshots: (addon.screenshots || []).map((screenshot) => ({
       id: screenshot.id,
       title: screenshot.title,
@@ -394,4 +395,33 @@ export async function getAddonsByIds(modIds: number[]): Promise<AddonSummary[]> 
   });
 
   return response.data.map((mod) => mapAddonSummary(mod));
+}
+
+// Only CurseForge's CDN may be handed to the host/BDS downloaders. The browser sends the file URL
+// it was shown, and anything else (internal addresses, file://) must fall back to a server-side lookup.
+export function isAllowedDownloadUrl(url: unknown): url is string {
+  if (typeof url !== "string") return false;
+  try {
+    const u = new URL(url);
+    return u.protocol === "https:" && (u.hostname === "forgecdn.net" || u.hostname.endsWith(".forgecdn.net"));
+  } catch {
+    return false;
+  }
+}
+
+// Add-on descriptions are third-party HTML rendered with dangerouslySetInnerHTML. Strip what can run
+// script or embed another document, and keep only plain web links. Not a full sanitizer, but it closes
+// the obvious doors without pulling in a dependency.
+export function sanitizeHtml(html: string): string {
+  if (!html) return "";
+  const safeUrl = (v: string) => /^(https?:\/\/|\/(?!\/)|#|mailto:)/i.test(v.trim());
+  return html
+    .replace(/<!--[\s\S]*?-->/g, "")
+    .replace(/<\s*(script|style|iframe|object|embed|form|meta|link|base|svg|math|template)\b[\s\S]*?<\s*\/\s*\1\s*>/gi, "")
+    .replace(/<\s*\/?\s*(script|style|iframe|object|embed|form|meta|link|base|svg|math|template)\b[^>]*>/gi, "")
+    .replace(/\s+on[a-z]+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, "")
+    .replace(/\s+(srcdoc|formaction|xlink:href|action|data)\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, "")
+    .replace(/\s(href|src)\s*=\s*"([^"]*)"/gi, (m, attr, v) => (safeUrl(v) ? m : ""))
+    .replace(/\s(href|src)\s*=\s*'([^']*)'/gi, (m, attr, v) => (safeUrl(v) ? m : ""))
+    .replace(/\s(href|src)\s*=\s*([^\s"'>]+)/gi, (m, attr, v) => (safeUrl(v) ? m : ""));
 }

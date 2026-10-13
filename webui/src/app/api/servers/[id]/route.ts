@@ -1,6 +1,6 @@
 import { NextResponse, NextRequest } from "next/server";
 import { getSession } from "@/lib/session";
-import { listWorlds, startWorldContainer, stopWorldContainer } from "@/lib/host";
+import { listWorlds, startWorldContainer, stopWorldContainer, setWorldBackup } from "@/lib/host";
 import * as bds from "@/lib/bds";
 import { isRestartPending, clearRestartPending, setRestartPending } from "@/lib/restart-state";
 import { getPermissions, setPermission } from "@/lib/bds";
@@ -21,10 +21,11 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   if (!server) return NextResponse.json({ error: "server not found" }, { status: 404 });
 
   const world = worlds.find((w: any) => w.id === id);
-  const [statusResult, allowlistResult, permissionsResult] = await Promise.allSettled([
+  const [statusResult, allowlistResult, permissionsResult, gamerulesResult] = await Promise.allSettled([
     bds.getStatus(server),
     bds.getAllowlist(server),
     getPermissions(server),
+    bds.getGamerules(server),
   ]);
 
   const status = statusResult.status === "fulfilled"
@@ -32,10 +33,26 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     : { online: false, players: 0, maxPlayers: 20, playerList: [], version: "", worldName: "", difficulty: "", gamemode: "" };
   const allowlist = allowlistResult.status === "fulfilled" && Array.isArray(allowlistResult.value) ? allowlistResult.value : [];
   const permissions = permissionsResult.status === "fulfilled" && Array.isArray(permissionsResult.value) ? permissionsResult.value : [];
+  const gamerules = gamerulesResult.status === "fulfilled" && gamerulesResult.value && typeof gamerulesResult.value === "object" ? gamerulesResult.value : {};
 
   // Always use registry name, not BDS response (avoids flicker during startup)
   status.worldName = world?.name || status.worldName;
-  return NextResponse.json({ status, allowlist, permissions, restartPending: isRestartPending(id), importing: world?.importing === true });
+
+  // permissions.json only stores xuids; borrow the gamertags from allowlist entries that have one
+  const nameByXuid: Record<string, string> = {};
+  for (const e of allowlist as Array<{ name?: string; xuid?: string }>) if (e.xuid && e.name) nameByXuid[e.xuid] = e.name;
+  const namedPermissions = (permissions as Array<{ xuid: string; permission: string; name?: string }>).map((p) => ({ ...p, name: p.name ?? nameByXuid[p.xuid] }));
+
+  // Static facts for the "seed / how to join" card; host-api reads the seed from level.dat and caches it
+  const info = {
+    seed: world?.seed ?? null,
+    ip: world?.ip ?? null,
+    gamePort: world?.gamePort ?? 19132,
+    externalPort: world?.externalPort ?? null,
+    publicIp: world?.publicIp ?? null,
+    xbox: world?.xbox ?? null,
+  };
+  return NextResponse.json({ status, allowlist, permissions: namedPermissions, gamerules, restartPending: isRestartPending(id), importing: world?.importing === true, info });
 }
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -86,6 +103,21 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         const gmResult = await bds.setGamemode(server, body.mode);
         if (gmResult.success) setRestartPending(id);
         return NextResponse.json(gmResult);
+      }
+
+      case "achievements": {
+        // bds-api cycles BDS itself around the level.dat patch — no restart pending.
+        return NextResponse.json(await bds.setAchievements(server, !!body.enabled));
+      }
+
+      case "nightlyBackups": {
+        // Host-side flag read by scripts/daily-backup.sh; no game impact.
+        return NextResponse.json(await setWorldBackup(server.id, !!body.enabled));
+      }
+
+      case "betaApis": {
+        // Same pattern: bds-api stops BDS, patches the experiments flag in level.dat, starts it again.
+        return NextResponse.json(await bds.setBetaApis(server, !!body.enabled));
       }
 
       case "hardcore": {

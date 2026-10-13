@@ -21,21 +21,24 @@ function timeAgo(dateStr: string): string {
 }
 
 export default function LikedAddonsPage() {
-  const { likedAddons, isLiked, toggle, count } = useLikedAddons();
+  const { likedAddons, isLiked, toggle, count, loaded } = useLikedAddons();
 
   return (
     <div className="min-h-screen p-4 sm:p-6 max-w-5xl mx-auto pb-20">
-      <div className="mc-dark-panel flex items-center justify-between px-4 py-2 mb-4">
-        <div className="flex items-center gap-3">
-          <Link href="/addons"><button className="mc-btn text-xs px-2 py-0">&lt;</button></Link>
+      <div className="mc-dark-panel flex flex-wrap items-center justify-between gap-2 px-4 py-2 mb-4">
+        <div className="flex items-center gap-3 min-w-0">
+          <Link href="/addons" className="mc-btn mc-btn-sm mc-btn-icon" aria-label="Back to add-ons">&lt;</Link>
           <span className="mc-title text-sm">Saved Add-ons</span>
         </div>
         <span className="mc-gray text-xs">{count} saved</span>
       </div>
 
-      {likedAddons.length === 0 ? (
+      {!loaded ? (
+        <p className="mc-note py-8 text-center">Loading…</p>
+      ) : likedAddons.length === 0 ? (
         <div className="mc-dark-panel p-8 text-center">
-          <p className="mc-gray text-xs">No saved add-ons yet. Browse the library to find some.</p>
+          <p className="mc-gray text-xs mb-3">No saved add-ons yet. Tap ♡ on any add-on to save it here.</p>
+          <Link href="/addons" className="mc-btn mc-btn-amber mc-btn-sm">Browse add-ons</Link>
         </div>
       ) : (
         <div className="mc-inventory-grid mb-4">
@@ -45,6 +48,7 @@ export default function LikedAddonsPage() {
                 <div className="mc-addon-banner relative">
                   <button
                     type="button"
+                    aria-pressed={isLiked(addon.id)}
                     aria-label={isLiked(addon.id) ? `Remove ${addon.name} from saved add-ons` : `Save ${addon.name}`}
                     className="absolute right-2 top-2 z-10 rounded-full bg-black/65 px-2 py-1 text-sm leading-none text-white"
                     onClick={(e) => {
@@ -65,7 +69,7 @@ export default function LikedAddonsPage() {
                 </div>
                 <div className="mc-addon-card-body">
                   <div className="mc-white text-sm font-bold truncate mb-1">{addon.name}</div>
-                  <div className="mc-dark-gray text-[10px] mb-3">
+                  <div className="mc-dark-gray text-[11px] mb-3">
                     by <span className="mc-white">{addon.authors.map((a) => a.name).join(", ") || "Unknown"}</span>
                   </div>
                   <div className="mc-gray flex-1 text-[11px] line-clamp-2 leading-relaxed font-sans mb-4">
@@ -73,10 +77,10 @@ export default function LikedAddonsPage() {
                   </div>
                   <div className="flex justify-between items-center pt-3 border-t border-white/5 mt-auto">
                     <div className="flex items-center gap-1.5">
-                      <span className="mc-aqua text-[10px] font-bold">{formatCount(addon.downloadCount)}</span>
-                      <span className="mc-dark-gray text-[9px] uppercase tracking-wider">Downloads</span>
+                      <span className="mc-aqua text-[11px] font-bold">{formatCount(addon.downloadCount)}</span>
+                      <span className="mc-dark-gray text-[11px] uppercase tracking-wider">Downloads</span>
                     </div>
-                    <span className="mc-dark-gray text-[10px]">{timeAgo(addon.dateModified)}</span>
+                    <span className="mc-dark-gray text-[11px]">{timeAgo(addon.dateModified)}</span>
                   </div>
                 </div>
               </div>

@@ -19,6 +19,7 @@ export async function GET() {
     difficulty: w.bdsStatus?.difficulty || "normal",
     gamemode: w.bdsStatus?.gamemode || "survival",
     running: w.running,
+    seed: w.seed ?? null,
   }));
 
   return NextResponse.json(results);

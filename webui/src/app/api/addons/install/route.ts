@@ -2,7 +2,7 @@ import { NextResponse, NextRequest } from "next/server";
 import { getSession } from "@/lib/session";
 import { listWorlds } from "@/lib/host";
 import * as bds from "@/lib/bds";
-import { getDownloadUrl } from "@/lib/curseforge";
+import { getDownloadUrl, isAllowedDownloadUrl } from "@/lib/curseforge";
 import { setRestartPending } from "@/lib/restart-state";
 
 export async function POST(req: NextRequest) {
@@ -24,8 +24,8 @@ export async function POST(req: NextRequest) {
 
     const properties = await bds.getProperties(server);
     const worldName = properties["level-name"] || "world";
-    // Use URL from client (already has forgecdn.net fallback); only hit CF if not provided
-    const url = fileUrl || await getDownloadUrl(modId, fileId);
+    // Trust the client's URL only if it points at CurseForge's CDN; otherwise look it up server-side
+    const url = isAllowedDownloadUrl(fileUrl) ? fileUrl : await getDownloadUrl(modId, fileId);
     if (!url) return NextResponse.json({ error: "no download URL available for this file" }, { status: 422 });
     const result = await bds.installAddon(server, { url, worldName, modId, fileId, addonName });
     if (result.success) setRestartPending(worldId);

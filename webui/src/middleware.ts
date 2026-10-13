@@ -4,12 +4,13 @@ import type { NextRequest } from "next/server";
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Allow login page, login API, and static assets
+  // Allow login page, login API, and static assets (anything under /public has a file extension:
+  // the self-hosted fonts, the particle sprite, screenshots)
   if (
     pathname.startsWith("/login") ||
     pathname.startsWith("/api/login") ||
     pathname.startsWith("/_next") ||
-    pathname === "/favicon.ico"
+    /\.[a-z0-9]+$/i.test(pathname)
   ) {
     return NextResponse.next();
   }

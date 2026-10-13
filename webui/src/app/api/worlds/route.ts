@@ -15,7 +15,8 @@ export async function POST(req: Request) {
     const name = body.name?.trim();
     if (!name) return NextResponse.json({ error: "missing name" }, { status: 400 });
     const seed = body.seed?.trim() || undefined;
-    const result = await createWorld(name, seed);
+    const backup = body.backup !== false; // nightly backups on unless the box was unticked
+    const result = await createWorld(name, seed, backup);
     return NextResponse.json(result, { status: result.success ? 200 : 500 });
   }
 

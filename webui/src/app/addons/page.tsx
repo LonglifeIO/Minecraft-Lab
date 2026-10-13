@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useCallback, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import useSWR from "swr";
 import { useLikedAddons, type LikedAddon } from "@/lib/use-liked-addons";
@@ -77,13 +77,43 @@ function timeAgo(dateStr: string): string {
 }
 
 export default function AddonsPage() {
+  // Suspense boundary required because AddonsContent uses useSearchParams(), which
+  // triggers Next's prerender bailout without one.
+  return (
+    <Suspense fallback={null}>
+      <AddonsContent />
+    </Suspense>
+  );
+}
+
+function AddonsContent() {
   const router = useRouter();
-  const [query, setQuery] = useState("");
-  const [searchInput, setSearchInput] = useState("");
-  const [sortField, setSortField] = useState("2");
-  const [classId, setClassId] = useState<string>("");      // top-level class (Maps, Skins, etc.)
-  const [categoryId, setCategoryId] = useState<string>(""); // subcategory within Addons
-  const [page, setPage] = useState(0);
+  const searchParams = useSearchParams();
+
+  // Filter / pagination state lives in the URL so back-navigation from a detail page
+  // restores it for free. `searchInput` is the only thing kept locally — it's the
+  // not-yet-submitted typing buffer; submitting commits it to the URL as `q`.
+  const query = searchParams.get("q") || "";
+  const sortField = searchParams.get("sort") || "2";
+  const classId = searchParams.get("class") || "";
+  const categoryId = searchParams.get("cat") || "";
+  const page = Math.max(0, parseInt(searchParams.get("page") || "0", 10) || 0);
+  const [searchInput, setSearchInput] = useState(query);
+
+  const updateUrl = useCallback((updates: Record<string, string | undefined>) => {
+    const next = new URLSearchParams(searchParams.toString());
+    for (const [k, v] of Object.entries(updates)) {
+      // Strip empty/default values so the URL stays clean (no ?q=&sort=2&page=0 noise).
+      if (v === undefined || v === "" || (k === "page" && v === "0") || (k === "sort" && v === "2")) {
+        next.delete(k);
+      } else {
+        next.set(k, v);
+      }
+    }
+    const qs = next.toString();
+    router.replace(`/addons${qs ? `?${qs}` : ""}`, { scroll: false });
+  }, [router, searchParams]);
+
   const pageSize = 20;
   const { isLiked, toggle, count } = useLikedAddons();
 
@@ -102,8 +132,7 @@ export default function AddonsPage() {
 
   function handleSearch(e: React.FormEvent) {
     e.preventDefault();
-    setQuery(searchInput);
-    setPage(0);
+    updateUrl({ q: searchInput, page: "0" });
   }
 
   function toLikedAddon(addon: SearchResult): LikedAddon {
@@ -118,19 +147,21 @@ export default function AddonsPage() {
     };
   }
 
-  const totalPages = data?.pagination ? Math.ceil(data.pagination.totalCount / pageSize) : 0;
+  // CurseForge refuses index + pageSize beyond 10,000, so later pages would only ever fail
+  const totalPages = data?.pagination ? Math.min(Math.ceil(data.pagination.totalCount / pageSize), Math.floor(10000 / pageSize)) : 0;
 
   return (
     <div className="min-h-screen p-4 sm:p-6 max-w-5xl mx-auto pb-20">
       {/* Title bar */}
-      <div className="mc-dark-panel flex items-center justify-between px-4 py-2 mb-4">
-        <div className="flex items-center gap-3">
-          <Link href="/"><button className="mc-btn text-xs px-2 py-0">&lt;</button></Link>
-          <span className="mc-title text-sm">Add-on Library</span>
+      <div className="mc-dark-panel flex flex-wrap items-center justify-between gap-2 px-4 py-2 mb-4">
+        <div className="flex items-center gap-3 min-w-0">
+          <Link href="/" className="mc-btn mc-btn-sm mc-btn-icon" aria-label="Back to worlds">&lt;</Link>
+          <span className="mc-title text-sm">Browse Add-ons</span>
         </div>
-        <Link href="/addons/liked" className="mc-btn text-xs px-3 py-1">
-          ♥ Saved ({count})
-        </Link>
+        <div className="mc-toolbar">
+          <Link href="/addons/library" className="mc-btn mc-btn-sm">📚 Library</Link>
+          <Link href="/addons/liked" className="mc-btn mc-btn-sm">♥ Saved ({count})</Link>
+        </div>
       </div>
 
       {/* Search + Filters */}
@@ -138,6 +169,7 @@ export default function AddonsPage() {
         <form onSubmit={handleSearch} className="flex gap-2 mb-3">
           <input
             className="mc-input flex-1"
+            aria-label="Search add-ons"
             placeholder="Search add-ons..."
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
@@ -150,8 +182,9 @@ export default function AddonsPage() {
           {SORT_OPTIONS.map((opt) => (
             <button
               key={opt.value}
-              className={`mc-btn text-xs px-2 py-0 ${sortField === opt.value ? "mc-btn-active" : ""}`}
-              onClick={() => { setSortField(opt.value); setPage(0); }}
+              className={`mc-btn mc-btn-sm ${sortField === opt.value ? "mc-btn-active" : ""}`}
+              aria-pressed={sortField === opt.value}
+              onClick={() => updateUrl({ sort: opt.value, page: "0" })}
             >
               {opt.label}
             </button>
@@ -160,8 +193,9 @@ export default function AddonsPage() {
           {CLASS_OPTIONS.map((opt) => (
             <button
               key={opt.label}
-              className={`mc-btn text-xs px-2 py-0 ${classId === opt.value ? "mc-btn-active" : ""}`}
-              onClick={() => { setClassId(opt.value); setCategoryId(""); setPage(0); }}
+              className={`mc-btn mc-btn-sm ${classId === opt.value ? "mc-btn-active" : ""}`}
+              aria-pressed={classId === opt.value}
+              onClick={() => updateUrl({ class: opt.value, cat: "", page: "0" })}
             >
               {opt.label}
             </button>
@@ -173,8 +207,9 @@ export default function AddonsPage() {
             <span className="mc-gray text-xs flex-shrink-0">Category:</span>
             <select
               className="mc-input text-xs flex-1 max-w-[220px]"
+              aria-label="Category"
               value={categoryId}
-              onChange={(e) => { setCategoryId(e.target.value); setPage(0); }}
+              onChange={(e) => updateUrl({ cat: e.target.value, page: "0" })}
             >
               {ADDON_CATEGORY_OPTIONS.map((opt) => (
                 <option key={opt.label} value={opt.value}>{opt.label}</option>
@@ -206,7 +241,7 @@ export default function AddonsPage() {
           ))
         ) : error ? (
           <div className="col-span-full p-8 text-center">
-            <p className="mc-red text-xs">Failed to load add-ons</p>
+            <p className="mc-red text-sm">Couldn&apos;t load add-ons. Try again.</p>
           </div>
         ) : data && (data.results?.length ?? 0) === 0 ? (
           <div className="col-span-full p-8 text-center">
@@ -219,6 +254,7 @@ export default function AddonsPage() {
                 <div className="mc-addon-banner relative">
                   <button
                     type="button"
+                    aria-pressed={isLiked(addon.id)}
                     aria-label={isLiked(addon.id) ? `Remove ${addon.name} from saved add-ons` : `Save ${addon.name}`}
                     className="absolute right-2 top-2 z-10 rounded-full bg-black/65 px-2 py-1 text-sm leading-none text-white"
                     onClick={(e) => {
@@ -239,7 +275,7 @@ export default function AddonsPage() {
                 </div>
                 <div className="mc-addon-card-body">
                   <div className="mc-white text-sm font-bold truncate mb-1">{addon.name}</div>
-                  <div className="mc-dark-gray text-[10px] mb-3">
+                  <div className="mc-dark-gray text-[11px] mb-3">
                     by <span className="mc-white">{addon.authors.map((a) => a.name).join(", ") || "Unknown"}</span>
                   </div>
                   <div className="mc-gray flex-1 text-[11px] line-clamp-2 leading-relaxed font-sans mb-4">
@@ -247,10 +283,10 @@ export default function AddonsPage() {
                   </div>
                   <div className="flex justify-between items-center pt-3 border-t border-white/5 mt-auto">
                     <div className="flex items-center gap-1.5">
-                      <span className="mc-aqua text-[10px] font-bold">{formatCount(addon.downloadCount)}</span>
-                      <span className="mc-dark-gray text-[9px] uppercase tracking-wider">Downloads</span>
+                      <span className="mc-aqua text-[11px] font-bold">{formatCount(addon.downloadCount)}</span>
+                      <span className="mc-dark-gray text-[11px] uppercase tracking-wider">Downloads</span>
                     </div>
-                    <span className="mc-dark-gray text-[10px]">{timeAgo(addon.dateModified)}</span>
+                    <span className="mc-dark-gray text-[11px]">{timeAgo(addon.dateModified)}</span>
                   </div>
                 </div>
               </div>
@@ -261,14 +297,14 @@ export default function AddonsPage() {
 
       {/* Pagination */}
       {totalPages > 1 && (
-        <div className="flex justify-center gap-2">
-          <button className="mc-btn text-xs px-3" disabled={page === 0} onClick={() => setPage(page - 1)}>
+        <div className="flex flex-wrap justify-center items-center gap-2">
+          <button className="mc-btn mc-btn-sm" disabled={page === 0} onClick={() => updateUrl({ page: String(page - 1) })}>
             &lt; Prev
           </button>
           <span className="mc-gray text-xs flex items-center">
             Page {page + 1} of {totalPages}
           </span>
-          <button className="mc-btn text-xs px-3" disabled={page >= totalPages - 1} onClick={() => setPage(page + 1)}>
+          <button className="mc-btn mc-btn-sm" disabled={page >= totalPages - 1} onClick={() => updateUrl({ page: String(page + 1) })}>
             Next &gt;
           </button>
         </div>

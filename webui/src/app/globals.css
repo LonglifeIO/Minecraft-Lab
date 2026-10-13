@@ -1,9 +1,80 @@
 @import "tailwindcss";
 @source "../../src";
-@import url('https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&display=swap');
+/* Fonts (both SIL Open Font License) served from /public/fonts so the dashboard works without internet access.
+   Silkscreen is capitals-only pixel type: titles, section labels, buttons. Atkinson Hyperlegible carries all running text. */
+@font-face {
+  font-family: 'Atkinson Hyperlegible Next';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/atkinson-400-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'Atkinson Hyperlegible Next';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/atkinson-400-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Atkinson Hyperlegible Next';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('/fonts/atkinson-700-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'Atkinson Hyperlegible Next';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('/fonts/atkinson-700-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Silkscreen';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/silkscreen-400-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'Silkscreen';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/silkscreen-400-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Silkscreen';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('/fonts/silkscreen-700-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'Silkscreen';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('/fonts/silkscreen-700-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
 
 /* ========== MINECRAFT COLOR PALETTE ========== */
+@theme {
+  --font-sans: 'Atkinson Hyperlegible Next', 'Atkinson Hyperlegible', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+}
+
 :root {
+  --font-pixel: 'Silkscreen', monospace;
+  --font-text: 'Atkinson Hyperlegible Next', 'Atkinson Hyperlegible', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   --mc-dirt: #8b6e4e;
   --mc-dirt-dark: #593d29;
   --mc-stone: #7a7a7a;
@@ -33,11 +104,12 @@
 
 body {
   margin: 0;
-  font-family: 'Silkscreen', monospace;
+  font-family: var(--font-text);
   color: var(--mc-white);
   min-height: 100vh;
   overflow-x: hidden;
-  font-size: 14px;
+  font-size: 15px;
+  line-height: 1.45;
 }
 
 /* ========== DIRT BACKGROUND ========== */
@@ -133,7 +205,7 @@ body {
   background: linear-gradient(135deg, #2a2a2a, #1a1a1a);
   font-size: 48px;
   color: #333;
-  font-family: 'Silkscreen', monospace;
+  font-family: var(--font-pixel);
 }
 
 .mc-addon-card-body {
@@ -154,7 +226,7 @@ body {
   border: 2px solid;
   border-color: var(--mc-panel-light) var(--mc-panel-shadow) var(--mc-panel-shadow) var(--mc-panel-light);
   box-shadow: inset -2px -3px 0 #8b8b8b;
-  font-family: 'Silkscreen', monospace;
+  font-family: var(--font-pixel);
   font-size: 14px;
   padding: 6px 16px;
   cursor: pointer;
@@ -162,6 +234,7 @@ body {
   text-shadow: 1px 1px 0 rgba(255,255,255,0.3);
   transition: background-color 0.05s;
   line-height: 1.4;
+  white-space: nowrap;
 }
 .mc-btn:hover:not(:disabled) {
   background-color: #b0d8ef;
@@ -248,9 +321,9 @@ body {
   color: var(--mc-white);
   border: 2px solid;
   border-color: var(--mc-panel-dark) var(--mc-panel-light) var(--mc-panel-light) var(--mc-panel-dark);
-  padding: 6px 10px;
-  font-family: 'Silkscreen', monospace;
-  font-size: 14px;
+  padding: 7px 10px;
+  font-family: var(--font-text);
+  font-size: 15px;
   outline: none;
   text-shadow: 1px 1px 0 #333;
   width: 100%;
@@ -300,18 +373,18 @@ body {
 /* Minecraft yellow title */
 .mc-title {
   color: #ff9b2e;
-  font-family: 'Silkscreen', monospace;
+  font-family: var(--font-pixel);
   font-weight: 700;
 }
 
 /* Minecraft chat-style colored text */
-.mc-green { color: var(--mc-green); text-shadow: 1px 1px 0 #003300; }
-.mc-red { color: var(--mc-red); text-shadow: 1px 1px 0 #330000; }
-.mc-gold { color: var(--mc-gold); text-shadow: 1px 1px 0 #332200; }
-.mc-aqua { color: var(--mc-aqua); text-shadow: 1px 1px 0 #003333; }
-.mc-gray { color: var(--mc-gray); text-shadow: 1px 1px 0 #222; }
-.mc-white { color: var(--mc-white); text-shadow: 1px 1px 0 #333; }
-.mc-dark-gray { color: #999999; }
+.mc-green { color: var(--mc-green); text-shadow: 0 1px 1px rgba(0,0,0,0.55); }
+.mc-red { color: var(--mc-red); text-shadow: 0 1px 1px rgba(0,0,0,0.55); }
+.mc-gold { color: var(--mc-gold); text-shadow: 0 1px 1px rgba(0,0,0,0.55); }
+.mc-aqua { color: var(--mc-aqua); text-shadow: 0 1px 1px rgba(0,0,0,0.55); }
+.mc-gray { color: var(--mc-gray); text-shadow: 0 1px 1px rgba(0,0,0,0.55); }
+.mc-white { color: var(--mc-white); text-shadow: 0 1px 1px rgba(0,0,0,0.55); }
+.mc-dark-gray { color: #a9a9a9; }
 
 /* ========== STATUS BADGE ========== */
 .mc-status {
@@ -368,7 +441,8 @@ body {
   text-shadow: 1px 1px 0 #3b2a00;
   font-size: 14px;
   margin-bottom: 6px;
-  font-family: 'Silkscreen', monospace;
+  font-family: var(--font-pixel);
+  letter-spacing: 0.02em;
 }
 
 /* ========== ROW HOVER ========== */
@@ -457,7 +531,8 @@ body {
 
 /* ========== BADGE / CATEGORY ========== */
 .mc-category {
-  font-size: 10px;
+  font-family: var(--font-pixel);
+  font-size: 11px;
   background: #2a2a2a;
   border: 1px solid #555;
   padding: 1px 6px;
@@ -481,7 +556,7 @@ body {
   line-height: 1.6;
 }
 .mc-description h1, .mc-description h2, .mc-description h3 {
-  font-family: 'Silkscreen', monospace;
+  font-family: var(--font-pixel);
   color: var(--mc-gold);
   margin-top: 24px;
   margin-bottom: 12px;
@@ -497,6 +572,7 @@ body {
 
 /* ========== PLAYER AVATAR ========== */
 .mc-avatar {
+  font-family: var(--font-pixel);
   width: 32px;
   height: 32px;
   background: linear-gradient(135deg, #6b5a3e, #4a3c28);
@@ -508,4 +584,134 @@ body {
   font-size: 14px;
   color: var(--mc-gold);
   text-shadow: 1px 1px 0 #000;
+}
+
+/* ========== SIZE MODIFIERS ========== */
+/* .mc-btn/.mc-input/.mc-avatar set their own size, so Tailwind text-x, p-x and w-x utilities on them never applied. Use these instead. */
+.mc-btn-sm { font-size: 13px; padding: 5px 10px; min-height: 32px; }
+.mc-btn-lg { font-size: 15px; padding: 10px 20px; }
+.mc-btn-icon { padding: 4px 8px; min-width: 32px; }
+a.mc-btn { text-decoration: none; }
+.mc-avatar-lg { width: 48px; height: 48px; font-size: 20px; }
+.mc-btn:focus-visible, .mc-input:focus-visible, .mc-toggle:focus-visible, .mc-link:focus-visible, .mc-menu-item:focus-visible {
+  outline: 2px solid var(--mc-aqua);
+  outline-offset: 2px;
+}
+
+/* ========== EYEBROW / NOTE / STAT ========== */
+.mc-note { color: #b4b4b4; font-size: 13.5px; line-height: 1.5; }
+.mc-stat { display: flex; flex-direction: column; gap: 2px; min-width: 96px; }
+.mc-stat-label { color: #b4b4b4; font-family: var(--font-pixel); font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; }
+.mc-stat-value { font-size: 20px; font-weight: 700; }
+/* seeds and addresses: readable digits, selectable in one click */
+.mc-mono {
+  font-family: ui-monospace, "Cascadia Mono", Menlo, Consolas, monospace;
+  font-size: 14px;
+  letter-spacing: 0.02em;
+  word-break: break-all;
+  user-select: all;
+}
+
+/* ========== STATUS CHIP (icon + word, never colour alone) ========== */
+.mc-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  font-family: var(--font-pixel);
+  font-size: 12px;
+  border: 1px solid;
+  white-space: nowrap;
+}
+.mc-chip::before { content: ''; width: 8px; height: 8px; flex-shrink: 0; }
+.mc-chip-on { background: #003300; border-color: #1f7a1f; color: var(--mc-green); }
+.mc-chip-on::before { background: var(--mc-green); box-shadow: 0 0 6px var(--mc-green); animation: mc-pulse 2s ease-in-out infinite; }
+.mc-chip-off { background: #2a2a2a; border-color: #555; color: #d6d6d6; }
+.mc-chip-off::before { background: #777; }
+.mc-chip-wait { background: #332600; border-color: #7a5a00; color: var(--mc-gold); }
+.mc-chip-wait::before { background: var(--mc-gold); animation: mc-pulse 1s ease-in-out infinite; }
+
+/* ========== TOOLBAR (wraps on phones) ========== */
+.mc-toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+
+/* ========== ACTIONS MENU ========== */
+.mc-menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 4px);
+  z-index: 30;
+  min-width: 160px;
+  background: #181818;
+  border: 2px solid;
+  border-color: #2e2e2e #000 #000 #2e2e2e;
+  box-shadow: 4px 4px 0 rgba(0,0,0,0.5);
+  padding: 4px;
+}
+.mc-menu-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 8px 10px;
+  font-size: 14px;
+  font-family: inherit;
+  background: transparent;
+  border: none;
+  color: var(--mc-white);
+  cursor: pointer;
+}
+.mc-menu-item:hover, .mc-menu-item:focus-visible { background: rgba(255,255,255,0.08); outline: none; }
+
+/* ========== PHONES / MOTION ========== */
+@media (max-width: 640px) {
+  .mc-input { font-size: 16px; } /* iOS zooms into inputs smaller than 16px */
+}
+@media (prefers-reduced-motion: reduce) {
+  .mc-pulse, .mc-glint::after, .mc-btn-active::after, .mc-skeleton, .mc-chip-on::before, .mc-chip-wait::before, .mc-toast { animation: none !important; }
+  .mc-lift, .mc-addon-card, .mc-toggle-knob { transition: none; }
+}
+
+/* third-party add-on descriptions must not widen the page */
+.mc-description { overflow-wrap: anywhere; }
+.mc-description iframe, .mc-description video, .mc-description table, .mc-description pre { max-width: 100%; }
+.mc-description table, .mc-description pre { display: block; overflow-x: auto; }
+
+/* ========== INLINE TEXT BUTTON (e.g. "Copy" next to a seed) ========== */
+.mc-textbtn {
+  background: none;
+  border: none;
+  padding: 0 4px;
+  font: inherit;
+  font-size: 13px;
+  color: var(--mc-aqua);
+  text-decoration: underline;
+  cursor: pointer;
+}
+.mc-textbtn:hover { color: #fff; }
+.mc-textbtn:focus-visible { outline: 2px solid var(--mc-aqua); outline-offset: 2px; }
+
+/* ========== STACKED BUTTON (label over a short description; text may wrap) ========== */
+.mc-btn-stack {
+  flex-direction: column;
+  align-items: center;
+  white-space: normal;
+  padding: 8px 6px;
+  line-height: 1.2;
+  min-height: 52px;
+  text-align: center;
+}
+
+/* ========== POPOVER PANEL (dropdown on desktop, full-width sheet on phones) ========== */
+.mc-popover { width: 440px; max-width: calc(100vw - 24px); padding: 12px; }
+@media (max-width: 640px) {
+  .mc-popover {
+    position: fixed;
+    left: 12px;
+    right: 12px;
+    top: 72px;
+    width: auto;
+    max-width: none;
+    max-height: calc(100vh - 96px);
+    overflow-y: auto;
+    z-index: 60;
+  }
 }

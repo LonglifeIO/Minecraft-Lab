@@ -1,11 +1,11 @@
 import { NextResponse, NextRequest } from "next/server";
 import { getSession } from "@/lib/session";
-import { createWorld, listWorlds, setWorldImporting } from "@/lib/host";
+import { createWorld, deleteWorld, listWorlds, setWorldImporting } from "@/lib/host";
 import * as bds from "@/lib/bds";
-import { getDownloadUrl } from "@/lib/curseforge";
+import { getDownloadUrl, isAllowedDownloadUrl } from "@/lib/curseforge";
 import { setRestartPending } from "@/lib/restart-state";
 
-export const maxDuration = 120; // seconds — map imports stop/start BDS and can be slow
+export const maxDuration = 300; // seconds — a new container boots, then BDS stops, downloads, unpacks and starts
 
 const POLL_INTERVAL_MS = 2000;
 const POLL_TIMEOUT_MS = 60000;
@@ -27,10 +27,8 @@ async function waitForServer(server: { id: string; name: string; host: string; a
 export async function POST(req: NextRequest) {
   const session = await getSession();
   if (!session.isLoggedIn) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-
-  const isAdmin = session.role === "admin";
-  const isMod = session.role === "moderator" || isAdmin;
-  if (!isMod) return NextResponse.json({ error: "moderator access required" }, { status: 403 });
+  // Creating a world is an admin action everywhere else (/api/worlds); keep this door the same
+  if (session.role !== "admin") return NextResponse.json({ error: "admin access required" }, { status: 403 });
 
   try {
     const body = await req.json();
@@ -38,34 +36,46 @@ export async function POST(req: NextRequest) {
 
     if (!worldName?.trim()) return NextResponse.json({ error: "missing worldName" }, { status: 400 });
 
-    const url = fileUrl || await getDownloadUrl(modId, fileId);
+    const url = isAllowedDownloadUrl(fileUrl) ? fileUrl : await getDownloadUrl(modId, fileId);
     if (!url) return NextResponse.json({ error: "no download URL available" }, { status: 422 });
 
     // Create the new world/container via host API
     const created = await createWorld(worldName.trim());
     if (!created?.world?.id) return NextResponse.json({ error: created?.error || "failed to create world" }, { status: 500 });
+    const newId: string = created.world.id;
+
+    // From here on a failure would leave an empty, orphaned world behind (and every retry would add another)
+    const fail = async (error: string, status: number) => {
+      await deleteWorld(newId).catch(() => {});
+      return NextResponse.json({ error }, { status });
+    };
 
     // Fetch the new server's connection info
     const worlds = await listWorlds();
-    const world = worlds.find((w: any) => w.id === created.world.id);
-    if (!world) return NextResponse.json({ error: "new world not found after creation" }, { status: 500 });
+    const world = worlds.find((w: any) => w.id === newId);
+    if (!world) return fail("new world not found after creation", 500);
 
     const server = { id: world.id, name: world.name, host: world.ip, apiPort: world.apiPort };
 
     // Wait for the BDS API to become available
     const ready = await waitForServer(server);
-    if (!ready) return NextResponse.json({ error: "new server did not become ready in time" }, { status: 504 });
+    if (!ready) return fail("the new world took too long to start", 504);
 
     // Mark world as importing so UI shows a banner and blocks joining
     await setWorldImporting(world.id, true);
 
     // Import the world data (stops BDS, extracts map, restarts BDS)
-    const result = await bds.importWorld(server, { url, worldName: worldName.trim() });
+    let result: { success?: boolean; error?: string } | undefined;
+    try {
+      result = await bds.importWorld(server, { url, worldName: worldName.trim() });
+    } catch {
+      result = { error: "the import timed out or the world stopped answering" };
+    } finally {
+      // Always clear the importing flag, even when the import threw
+      await setWorldImporting(world.id, false).catch(() => {});
+    }
 
-    // Always clear the importing flag
-    await setWorldImporting(world.id, false);
-
-    if (!result?.success) return NextResponse.json({ error: result?.error || "import failed" }, { status: 500 });
+    if (!result?.success) return fail(result?.error || "import failed", 500);
 
     setRestartPending(world.id);
     return NextResponse.json({ success: true, worldId: world.id, worldName: worldName.trim() });

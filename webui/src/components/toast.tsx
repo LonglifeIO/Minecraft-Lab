@@ -20,7 +20,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   return (
     <ToastContext.Provider value={{ toast }}>
       {children}
-      <div className="fixed bottom-4 left-1/2 -translate-x-1/2 flex flex-col gap-2 z-50 w-full max-w-sm px-4">
+      <div className="fixed bottom-4 left-1/2 -translate-x-1/2 flex flex-col gap-2 z-50 w-full max-w-sm px-4" role="status" aria-live="polite">
         {toasts.map((t) => (
           <div key={t.id} className="mc-dark-panel px-4 py-3 mc-toast" style={{ fontSize: 13 }}>
             <span className={t.type === "success" ? "mc-green" : t.type === "error" ? "mc-red" : "mc-aqua"}>

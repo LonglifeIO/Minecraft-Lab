@@ -33,9 +33,11 @@ function writeLikedAddons(addons: LikedAddon[]) {
 
 export function useLikedAddons() {
   const [likedAddons, setLikedAddons] = useState<LikedAddon[]>([]);
+  const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
     setLikedAddons(readLikedAddons());
+    setLoaded(true);
   }, []);
 
   useEffect(() => {
@@ -51,8 +53,10 @@ export function useLikedAddons() {
 
   function toggle(addon: LikedAddon) {
     setLikedAddons((current) => {
-      const exists = current.some((item) => item.id === addon.id);
-      const next = exists ? current.filter((item) => item.id !== addon.id) : [addon, ...current];
+      // A click before the first read must not wipe what is already stored
+      const base = loaded ? current : readLikedAddons();
+      const exists = base.some((item) => item.id === addon.id);
+      const next = exists ? base.filter((item) => item.id !== addon.id) : [addon, ...base];
       writeLikedAddons(next);
       return next;
     });
@@ -66,5 +70,6 @@ export function useLikedAddons() {
     isLiked: (id: number) => likedIds.has(id),
     toggle,
     count: likedAddons.length,
+    loaded,
   };
 }

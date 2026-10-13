@@ -72,6 +72,7 @@ export default function AddonDetailPage() {
   const { transform } = useDemoMode();
   const modId = params.modId as string;
   const [installing, setInstalling] = useState(false);
+  const [savingToLibrary, setSavingToLibrary] = useState(false);
   const [showWorldPicker, setShowWorldPicker] = useState(false);
   const [selectedFileId, setSelectedFileId] = useState<number | null>(null);
   const [newWorldName, setNewWorldName] = useState("");
@@ -88,9 +89,11 @@ export default function AddonDetailPage() {
 
   const addon = data?.addon;
   const files = data?.files || [];
+  // one answer for "is this a map?" — the .mcworld check needs the file list, so never call isMapAddon without it
+  const isMap = !!addon && isMapAddon(addon, files);
 
   function openWorldPicker() {
-    if (addon && isMapAddon(addon, files)) {
+    if (isMap) {
       setNewWorldName(addon.name.replace(/[^A-Za-z0-9._-]+/g, "_").slice(0, 40));
     }
     setShowWorldPicker(true);
@@ -115,15 +118,51 @@ export default function AddonDetailPage() {
       });
       const result = await res.json();
       if (result.success) {
-        toast(`World "${transform(trimmed, "worldName")}" created! Opening dashboard...`, "success");
+        toast(`World "${transform(trimmed, "worldName")}" created! Opening your new world…`, "success");
         router.push(`/world/${result.worldId}`);
       } else {
         toast(result.error || "Import failed", "error");
       }
     } catch {
-      toast("Network error", "error");
+      toast("Couldn't connect. Check your internet and try again.", "error");
     } finally {
       setInstalling(false);
+    }
+  }
+
+  async function handleSaveToLibrary() {
+    if (!addon) return;
+    const file = files.find((f) => f.id === selectedFileId) || files[0];
+    if (!file) {
+      toast("No file available to save", "error");
+      return;
+    }
+    setSavingToLibrary(true);
+    toast(`Saving ${addon.name} to library...`, "info");
+    try {
+      const res = await fetch("/api/library/from-curseforge", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          modId: addon.id,
+          fileId: file.id,
+          fileUrl: file.downloadUrl,
+          name: addon.name,
+          description: addon.summary,
+          author: addon.authors.map((a) => a.name).join(", "),
+          thumbUrl: addon.thumbUrl,
+        }),
+      });
+      const result = await res.json();
+      if (result.id) {
+        toast("Saved to library!", "success");
+      } else {
+        toast(result.error || "Save failed", "error");
+      }
+    } catch {
+      toast("Couldn't connect. Check your internet and try again.", "error");
+    } finally {
+      setSavingToLibrary(false);
     }
   }
 
@@ -144,12 +183,12 @@ export default function AddonDetailPage() {
       });
       const result = await res.json();
       if (result.success) {
-        toast(`${addon.name} installed! Restart the server to activate.`, "success");
+        toast(`${addon.name} installed! Restart the world to turn it on.`, "success");
       } else {
         toast(result.error || "Install failed", "error");
       }
     } catch {
-      toast("Network error", "error");
+      toast("Couldn't connect. Check your internet and try again.", "error");
     } finally {
       setInstalling(false);
     }
@@ -170,10 +209,26 @@ export default function AddonDetailPage() {
   return (
     <div className="min-h-screen p-4 sm:p-6 max-w-5xl mx-auto pb-20">
       {/* Title bar */}
-      <div className="mc-dark-panel flex items-center justify-between px-4 py-2 mb-4">
-        <div className="flex items-center gap-3">
-          <Link href="/addons"><button className="mc-btn text-xs px-2 py-0">&lt;</button></Link>
-          <span className="mc-title text-sm">{addon?.name || "Add-on"}</span>
+      <div className="mc-dark-panel flex flex-wrap items-center justify-between gap-2 px-4 py-2 mb-4">
+        <div className="flex items-center gap-3 min-w-0">
+          <button
+            type="button"
+            className="mc-btn mc-btn-sm mc-btn-icon"
+            aria-label="Back"
+            // router.back() returns to the exact prior listing URL (with filters/page),
+            // which we can't reconstruct from this page. Fall back to /addons only if
+            // the user deep-linked here (no in-app history).
+            onClick={() => {
+              if (typeof window !== "undefined" && window.history.length > 1) {
+                router.back();
+              } else {
+                router.push("/addons");
+              }
+            }}
+          >
+            &lt;
+          </button>
+          <span className="mc-title text-sm truncate">{addon?.name || "Add-on"}</span>
         </div>
       </div>
 
@@ -189,7 +244,7 @@ export default function AddonDetailPage() {
           </div>
         </div>
       )}
-      {error && !isLoading && <p className="mc-red text-xs py-8 text-center">Failed to load add-on</p>}
+      {error && !isLoading && <p className="mc-red text-sm py-8 text-center">Couldn&apos;t load this add-on. Try again.</p>}
 
       {addon && (
         <>
@@ -205,17 +260,17 @@ export default function AddonDetailPage() {
               </div>
               <div className="flex-1 min-w-0 flex flex-col justify-center">
                 <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mb-2">
-                  <h2 className="mc-white text-2xl font-bold tracking-tight">{addon.name}</h2>
+                  <h2 className="mc-white text-2xl font-bold tracking-tight break-words">{addon.name}</h2>
                 </div>
                 <p className="mc-dark-gray text-xs mb-4">
                   by <span className="mc-white font-bold">{addon.authors.map((a) => a.name).join(", ")}</span>
                 </p>
                 <div className="flex flex-wrap gap-2">
-                  <span className="mc-category py-1 px-3 bg-blue-900/30 border-blue-500/30 text-blue-300 font-bold uppercase tracking-wider" style={{ fontSize: 9 }}>
+                  <span className="mc-category py-1 px-3 bg-blue-900/30 border-blue-500/30 text-blue-300 font-bold uppercase tracking-wider" style={{ fontSize: 11 }}>
                     {formatCount(addon.downloadCount)} DOWNLOADS
                   </span>
                   {addon.categories.map((c) => (
-                    <span key={c.id} className="mc-category py-1 px-3 bg-black/40 uppercase tracking-wider" style={{ fontSize: 9 }}>{c.name}</span>
+                    <span key={c.id} className="mc-category py-1 px-3 bg-black/40 uppercase tracking-wider" style={{ fontSize: 11 }}>{c.name}</span>
                   ))}
                 </div>
               </div>
@@ -223,19 +278,30 @@ export default function AddonDetailPage() {
                 <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
                   <button
                     type="button"
+                    aria-pressed={!!addon && isLiked(addon.id)}
                     className={`mc-btn text-xs px-4 py-3 w-full sm:w-auto ${addon && isLiked(addon.id) ? "mc-btn-active" : ""}`}
                     onClick={() => addon && toggle(toLikedAddon(addon))}
                   >
                     {addon && isLiked(addon.id) ? "❤ Saved" : "♡ Save"}
                   </button>
+                  {addon && !isMap && (
+                    <button
+                      type="button"
+                      className="mc-btn mc-btn-amber text-xs px-4 py-3 w-full sm:w-auto font-bold tracking-wider"
+                      disabled={savingToLibrary || files.length === 0}
+                      onClick={handleSaveToLibrary}
+                    >
+                      {savingToLibrary ? "Saving…" : "Add to library"}
+                    </button>
+                  )}
                   <button
                     className={`mc-btn mc-btn-green text-sm px-10 py-3 w-full sm:w-auto font-bold tracking-widest ${!installing ? "mc-glint" : ""}`}
                     disabled={installing || files.length === 0}
                     onClick={openWorldPicker}
                   >
                     {installing
-                      ? (addon && isMapAddon(addon) ? "CREATING..." : "INSTALLING...")
-                      : (addon && isMapAddon(addon) ? "CREATE WORLD FROM MAP" : "INSTALL TO WORLD")}
+                      ? (isMap ? "Creating…" : "Installing…")
+                      : (isMap ? "Create world from map" : "Install to world")}
                   </button>
                 </div>
               </div>
@@ -250,12 +316,12 @@ export default function AddonDetailPage() {
 
           {/* World picker modal */}
           {showWorldPicker && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: "rgba(0,0,0,0.7)" }}>
-              <div className="mc-window p-4 w-80" style={{ boxShadow: "6px 6px 0 rgba(0,0,0,0.5)" }}>
-                {addon && isMapAddon(addon) ? (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.7)" }}>
+              <div role="dialog" aria-modal="true" className="mc-window p-4 w-full max-w-xs" style={{ boxShadow: "6px 6px 0 rgba(0,0,0,0.5)" }}>
+                {isMap ? (
                   <>
                     <div className="mc-section text-center mb-1">Create World from Map</div>
-                    <p className="mc-gray text-[10px] text-center mb-3">This map will be set up as a brand-new world. No existing worlds will be affected.</p>
+                    <p className="mc-gray text-[11px] text-center mb-3">This map will be set up as a brand-new world. No existing worlds will be affected.</p>
                     <input
                       className="mc-input w-full text-xs mb-3"
                       placeholder="New world name..."
@@ -285,11 +351,12 @@ export default function AddonDetailPage() {
                               key={w.id}
                               className="mc-row w-full text-left p-2 flex items-center justify-between"
                               onClick={() => handleInstall(w.id, w.name)}
-                              disabled={installing}
+                              disabled={installing || !w.running}
+                              title={!w.running ? "Start the world before installing" : undefined}
                             >
                               <span className="mc-white text-xs">{transform(w.name, "worldName")}</span>
-                              <span className={`mc-status ${w.online ? "mc-status-online" : "mc-status-offline"}`} style={{ fontSize: 8 }}>
-                                {w.online ? "Online" : "Offline"}
+                              <span className={`mc-status ${w.online ? "mc-status-online" : "mc-status-offline"}`} style={{ fontSize: 11 }}>
+                                {w.online ? "Online" : w.running ? "Starting" : "Stopped"}
                               </span>
                             </button>
                           ))}
@@ -317,11 +384,13 @@ export default function AddonDetailPage() {
                   style={{ border: "2px solid #5a5b5c", maxHeight: 400, objectFit: "contain", background: "#111" }}
                 />
                 {addon.screenshots.length > 1 && (
-                  <div className="flex justify-center gap-1.5 mt-2 overflow-x-auto pb-1">
+                  <div className="flex justify-start sm:justify-center gap-1.5 mt-2 overflow-x-auto pb-1">
                     {addon.screenshots.map((s, i) => (
                       <button
                         key={i}
                         className={`w-10 h-10 flex-shrink-0 border-2 ${i === screenshotIdx ? "border-[var(--mc-aqua)]" : "border-black/50"}`}
+                        aria-label={`Show screenshot ${i + 1}`}
+                        aria-current={i === screenshotIdx}
                         onClick={() => setScreenshotIdx(i)}
                       >
                         <img src={s.url} alt="" className="w-full h-full object-cover opacity-60 hover:opacity-100" />
@@ -343,7 +412,7 @@ export default function AddonDetailPage() {
           </div>
 
           {/* Files — hidden for map packs, not relevant to end user */}
-          {!isMapAddon(addon, files) && <div className="mc-dark-panel mb-4 overflow-hidden">
+          {!isMap && <div className="mc-dark-panel mb-4 overflow-hidden">
             <div className="p-3 pb-1 border-b border-black/20"><div className="mc-section">Recent Versions</div></div>
             <div className="divide-y divide-black/10">
               {files.length === 0 && <p className="mc-gray text-xs p-3">No files available</p>}
@@ -351,14 +420,14 @@ export default function AddonDetailPage() {
                 <div key={file.id} className="mc-row flex items-center justify-between px-3 py-2.5">
                   <div className="flex-1 min-w-0 mr-3">
                     <div className="mc-white text-xs truncate font-bold">{file.displayName}</div>
-                    <div className="mc-dark-gray flex gap-3 mt-0.5" style={{ fontSize: 9 }}>
+                    <div className="mc-dark-gray flex gap-3 mt-0.5" style={{ fontSize: 11 }}>
                       <span>{formatBytes(file.fileLength)}</span>
                       <span>{file.gameVersions.slice(0, 3).join(", ")}</span>
-                      <span style={{ fontSize: 8, opacity: 0.5 }}>{new Date(file.fileDate).toLocaleDateString()}</span>
+                      <span style={{ fontSize: 11, opacity: 0.5 }}>{new Date(file.fileDate).toLocaleDateString()}</span>
                     </div>
                   </div>
                   <button
-                    className={`mc-btn text-xs px-2 py-0 h-6 ${selectedFileId === file.id ? "mc-btn-active" : ""}`}
+                    className={`mc-btn mc-btn-sm ${selectedFileId === file.id ? "mc-btn-active" : ""}`}
                     onClick={() => { setSelectedFileId(file.id); openWorldPicker(); }}
                     disabled={installing}
                   >
@@ -372,14 +441,14 @@ export default function AddonDetailPage() {
           {/* Dependencies */}
           {files[0]?.dependencies && files[0].dependencies.length > 0 && (
             <div className="mc-dark-panel p-3 mb-4">
-              <div className="mc-section mb-2">Dependencies</div>
+              <div className="mc-section mb-2">Also needs</div>
               {files[0].dependencies.map((dep, i) => (
                 <div key={i} className="flex items-center gap-2 text-xs mb-1">
                   <span className={dep.relationType === 3 ? "mc-red" : dep.relationType === 2 ? "mc-gold" : "mc-gray"}>
-                    {dep.relationType === 3 ? "Required" : dep.relationType === 2 ? "Optional" : dep.relationType === 5 ? "Incompatible" : "Other"}
+                    {dep.relationType === 3 ? "Required" : dep.relationType === 2 ? "Optional" : dep.relationType === 5 ? "Doesn't work with" : "Other"}
                   </span>
                   <Link href={`/addons/${dep.modId}`} className="mc-aqua hover:underline">
-                    Mod #{dep.modId}
+                    Add-on #{dep.modId}
                   </Link>
                 </div>
               ))}

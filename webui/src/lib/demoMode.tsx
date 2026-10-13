@@ -159,7 +159,7 @@ export function DemoModeBadge() {
         right: 12,
         zIndex: 9999,
         padding: "4px 10px",
-        fontSize: 10,
+        fontSize: 11,
         fontWeight: 700,
         letterSpacing: "0.18em",
         color: "#ffaa00",

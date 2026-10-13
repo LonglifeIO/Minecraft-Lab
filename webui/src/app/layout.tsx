@@ -2,11 +2,12 @@ import type { Metadata } from "next";
 import "./globals.css";
 import { ToastProvider } from "@/components/toast";
 import { ParticleBackground } from "@/components/particles";
+import { BroadcasterBanner } from "@/components/broadcaster-banner";
 import { DemoModeProvider, DemoModeBadge } from "@/lib/demoMode";
 
 export const metadata: Metadata = {
   title: "MinecraftLab",
-  description: "Minecraft Server Dashboard",
+  description: "Family Minecraft Bedrock server dashboard",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -18,7 +19,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <DemoModeProvider>
           <DemoModeBadge />
           <ToastProvider>
-            <div className="mc-content">{children}</div>
+            <div className="mc-content">
+              <BroadcasterBanner />
+              {children}
+            </div>
           </ToastProvider>
         </DemoModeProvider>
       </body>

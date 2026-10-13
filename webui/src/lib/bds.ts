@@ -94,6 +94,16 @@ export async function setHardcore(server: ServerConfig, enabled: boolean) {
   return bdsRequest(server, "/hardcore", { method: "POST", body: JSON.stringify({ enabled }), timeoutMs: 45000 });
 }
 
+export async function setBetaApis(server: ServerConfig, enabled: boolean) {
+  // Mojang's "Beta APIs" experiment: some script add-ons won't load without it.
+  return bdsRequest(server, "/beta-apis", { method: "POST", body: JSON.stringify({ enabled }), timeoutMs: 45000 });
+}
+
+export async function setAchievements(server: ServerConfig, enabled: boolean) {
+  // Like hardcore: bds-api stops BDS, patches level.dat + server.properties, starts it again.
+  return bdsRequest(server, "/achievements", { method: "POST", body: JSON.stringify({ enabled }), timeoutMs: 45000 });
+}
+
 export async function power(server: ServerConfig, action: string) {
   return bdsRequest(server, "/power", {
     method: "POST",
@@ -145,8 +155,16 @@ export async function getProperties(server: ServerConfig) {
   try { return await bdsRequest(server, "/properties"); } catch { return {}; }
 }
 
+export async function getGamerules(server: ServerConfig): Promise<Record<string, boolean>> {
+  try {
+    const r = await bdsRequest(server, "/gamerules");
+    return r && typeof r === "object" && !r.error ? r : {};
+  } catch { return {}; }
+}
+
 export async function installAddon(server: ServerConfig, data: { url: string; worldName: string; modId: number; fileId: number; addonName: string }) {
-  return bdsRequest(server, "/addons/install", { method: "POST", body: JSON.stringify(data) });
+  // bds-api downloads and unpacks the file before answering; big packs take well over the default 8 s.
+  return bdsRequest(server, "/addons/install", { method: "POST", body: JSON.stringify(data), timeoutMs: 120000 });
 }
 
 export async function removeAddon(server: ServerConfig, data: { uuid: string; worldName: string }) {
@@ -158,5 +176,6 @@ export async function toggleAddon(server: ServerConfig, data: { uuid: string; wo
 }
 
 export async function importWorld(server: ServerConfig, data: { url: string; worldName: string }) {
-  return bdsRequest(server, "/worlds/import", { method: "POST", body: JSON.stringify(data) });
+  // Synchronous on the bds-api side: stop BDS (up to 30 s), download (up to 120 s), unpack, start.
+  return bdsRequest(server, "/worlds/import", { method: "POST", body: JSON.stringify(data), timeoutMs: 240000 });
 }
