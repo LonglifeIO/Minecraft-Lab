@@ -38,10 +38,15 @@ cat > /etc/minecraftlab/worlds.json <<'EOF'
   "standbyCtid": null,
   "standbyIp": null,
   "nextIpSuffix": 100,
-  "sourceCtid": 100,
+  "templateCtid": 199,
   "idleTimeoutMinutes": 10
 }
 EOF
+# templateCtid is a dedicated, always-stopped container holding a clean BDS install (no world,
+# bedrock/bds-api services disabled, miniupnpc installed). Every standby is a full `pct clone` of it,
+# so any world container, including the first one, can be deleted. Build it once from a clean world
+# container: `pct clone <ct> 199 --full --snapname template --hostname mc-template`, then start it,
+# wipe /opt/bedrock/worlds/*, disable bedrock and bds-api, and stop it. host-api keeps its BDS current.
 
 # Generate a strong random token
 python3 -c "import secrets; print(secrets.token_urlsafe(32))" > /tmp/token

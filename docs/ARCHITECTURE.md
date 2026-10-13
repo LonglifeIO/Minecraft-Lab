@@ -46,7 +46,6 @@ This document is the original implementation plan that drove the project. It syn
 | **Player Tunnel** | Playit.gg agent | Latest (free tier) | UDP tunnel for Bedrock, no port forwarding needed |
 | **Admin VPN** | Tailscale | Free personal plan | WireGuard mesh, secure access to Proxmox/Crafty/SSH |
 | **Console Access** | MCXboxBroadcast | Latest standalone | Server appears in Friends tab on all platforms |
-| **Console Fallback** | BedrockConnect | Latest | DNS redirect for consoles to enter custom server IPs |
 | **App-Level Backup** | MCscripts | Latest from TapeWerm/MCscripts | save hold/query/resume protocol for safe LevelDB backup |
 | **System Backup** | Proxmox vzdump | Built-in | Per-container snapshots with retention policies |
 | **Offsite Backup** | rclone | Latest | Sync to Oracle Cloud free tier or USB drive |
@@ -100,7 +99,6 @@ All services run in **unprivileged LXC containers** on the internal bridge netwo
 │         │                  │                      │               │
 │         │ UDP via          │ Friends tab           │ WireGuard     │
 │         │ Playit.gg addr   │ (MCXboxBroadcast)     │ (Tailscale)   │
-│         │                  │ or BedrockConnect     │               │
 └─────────┼──────────────────┼──────────────────────┼───────────────┘
           │                  │                      │
           ▼                  ▼                      ▼
@@ -755,35 +753,6 @@ Same MCXboxBroadcast method. PlayStation Bedrock players have a Microsoft accoun
 
 Same MCXboxBroadcast method. Switch Bedrock players also link Microsoft accounts.
 
-#### BedrockConnect Fallback (if MCXboxBroadcast doesn't work for a player)
-
-**Setup (admin, one-time):**
-```bash
-# In CT 105 (mc-tunnel), also run BedrockConnect
-mkdir -p /opt/bedrockconnect && cd /opt/bedrockconnect
-curl -LO https://github.com/Pugmatt/BedrockConnect/releases/latest/download/BedrockConnect-1.0-SNAPSHOT.jar
-
-# Run BedrockConnect
-java -jar BedrockConnect-1.0-SNAPSHOT.jar \
-    --custom_servers '[{"name":"Family Server","ip":"YOUR_PLAYIT_ADDRESS","port":YOUR_PLAYIT_PORT}]'
-
-# Create systemd service (similar to MCXboxBroadcast above)
-```
-
-**Player setup (one-time, per console):**
-```
-1. Go to console network settings (WiFi or Ethernet)
-2. Set DNS to Manual
-3. Primary DNS: [IP of your BedrockConnect instance, via Playit tunnel or Tailscale]
-4. Secondary DNS: 8.8.8.8
-5. Save
-6. Open Minecraft → Servers → click any Featured Server (e.g., "The Hive")
-7. Instead of connecting to The Hive, you'll see a custom server list
-8. Select "Family Server" → connects to your server
-```
-
-> **Note:** The public BedrockConnect DNS (`104.238.130.180`) also works but is third-party hosted. Self-hosting gives you full control.
-
 ### Connection Method Summary
 
 | Platform | Primary Method | Difficulty | Ongoing Effort |
@@ -793,7 +762,6 @@ java -jar BedrockConnect-1.0-SNAPSHOT.jar \
 | Xbox | MCXboxBroadcast Friends tab | Easy (one-time friend add) | None |
 | PlayStation | MCXboxBroadcast Friends tab | Easy (one-time friend add) | None |
 | Nintendo Switch | MCXboxBroadcast Friends tab | Easy (one-time friend add) | None |
-| Any console (fallback) | BedrockConnect DNS | Moderate (one-time DNS change) | None after setup |
 
 ---
 
@@ -1150,7 +1118,7 @@ server-name=Family Server - World 1
 gamemode=survival
 force-gamemode=false
 difficulty=normal
-allow-cheats=true
+allow-cheats=false   # true disables achievements for the world permanently
 max-players=20
 online-mode=true
 allow-list=true
@@ -1413,33 +1381,6 @@ SCRIPT
 3. Click to join — should connect to the server
 ```
 
-**Step 6.3: Install BedrockConnect as fallback (optional)**
-```bash
-pct exec 105 -- bash << 'SCRIPT'
-mkdir -p /opt/bedrockconnect && cd /opt/bedrockconnect
-curl -LO https://github.com/Pugmatt/BedrockConnect/releases/latest/download/BedrockConnect-1.0-SNAPSHOT.jar
-
-cat > /etc/systemd/system/bedrockconnect.service << 'EOF'
-[Unit]
-Description=BedrockConnect
-After=network.target
-
-[Service]
-Type=simple
-WorkingDirectory=/opt/bedrockconnect
-ExecStart=/usr/bin/java -jar BedrockConnect-1.0-SNAPSHOT.jar --custom_servers '[{"name":"Family World 1","ip":"YOUR_PLAYIT_ADDRESS","port":YOUR_PLAYIT_PORT}]'
-Restart=always
-RestartSec=10
-
-[Install]
-WantedBy=multi-user.target
-EOF
-
-systemctl daemon-reload
-systemctl enable --now bedrockconnect
-SCRIPT
-```
-
 **Verify before proceeding:**
 - [ ] MCXboxBroadcast running and authenticated
 - [ ] Console players can see server in Friends tab
@@ -1694,7 +1635,7 @@ EOF
 | **T2 kernel breaks on Proxmox update** | Medium | High | Pin kernel version. Snapshot before any system update. |
 | **Custom web UI development takes longer than expected** | High | Medium | Start with a minimal viable UI (just start/stop/status). Add features incrementally. Consider using Crafty's built-in UI for initial go-live. |
 | **Playit.gg goes down or changes terms** | Low | High | Plan B: Oracle Cloud free tier VPS + WireGuard relay |
-| **MCXboxBroadcast stops working (Microsoft API changes)** | Medium | Medium | BedrockConnect DNS as fallback. Monitor the GitHub repo for issues. |
+| **MCXboxBroadcast stops working (Microsoft API changes)** | Medium | Medium | Monitor the GitHub repo for issues; restart the bridge from the dashboard. (The BedrockConnect DNS lobby was removed 2026-10-13.) |
 | **LevelDB corruption from improper backup** | Low (with MCscripts) | High | Always use save hold/query/resume. Never copy db/ while BDS is writing. |
 | **Remote location access issues (can't physically reach server)** | Low | High | Tailscale provides remote SSH/Proxmox access. For hardware issues, you'll need to visit. Consider IPMI-like setup via Tailscale SSH. |
 
@@ -1703,7 +1644,7 @@ EOF
 | Component | Plan A | Plan B |
 |-----------|--------|--------|
 | Player tunnel | Playit.gg free tier | Oracle Cloud free VPS + WireGuard + iptables NAT |
-| Console access | MCXboxBroadcast | BedrockConnect DNS redirect |
+| Console access | MCXboxBroadcast | None (BedrockConnect DNS lobby removed 2026-10-13) |
 | Network connection | Wired Ethernet (built-in Gigabit) | USB Ethernet adapter if onboard NIC fails |
 | Management panel | Crafty Controller | Custom wrapper API per container (Node.js, minimal) |
 | Offsite backup | Oracle Cloud free tier | USB drive attached to the host |
@@ -1721,7 +1662,7 @@ server-name=Family Server
 gamemode=survival
 force-gamemode=false
 difficulty=normal
-allow-cheats=true
+allow-cheats=false   # true disables achievements for the world permanently
 max-players=20
 online-mode=true
 allow-list=true

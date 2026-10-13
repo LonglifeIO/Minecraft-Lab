@@ -106,6 +106,33 @@ def strip_log_prefix(line):
     return re.sub(r"^\[.*?\]\s*", "", line).strip()
 
 
+def send_many_and_capture(cmds, wait=1.5):
+    """Send N console commands in one screen burst and return the combined log
+    output written during the wait. Avoids the per-command serialized 1s sleep
+    that would otherwise turn 16 gamerule queries into a 16s wall."""
+    if not cmds:
+        return ""
+    if not os.path.exists(LOG_FILE):
+        return ""
+    payload = "\n".join(cmds) + "\n"
+    with _screen_lock:
+        try:
+            size_before = os.path.getsize(LOG_FILE)
+        except Exception:
+            size_before = 0
+        subprocess.run(
+            ["sudo", "-u", MC_USER, "screen", "-p", "0", "-S", SCREEN_NAME, "-X", "stuff", payload],
+            capture_output=True, timeout=10,
+        )
+        time.sleep(wait)
+        try:
+            with open(LOG_FILE, "r") as f:
+                f.seek(size_before)
+                return f.read().strip()
+        except Exception:
+            return ""
+
+
 def read_properties():
     props = {}
     try:
@@ -179,10 +206,7 @@ def _patch_level_dat_hardcore(path, enabled):
     if i < 0:
         raise ValueError("IsHardcore tag not found in level.dat (world may predate hardcore support)")
     data[i + len(_IS_HARDCORE_PAT)] = 1 if enabled else 0
-    tmp = path + ".tmp"
-    with open(tmp, "wb") as f:
-        f.write(bytes(data))
-    os.replace(tmp, path)
+    _write_preserving_owner(path, bytes(data))
 
 
 def write_hardcore(enabled):
@@ -204,6 +228,222 @@ def write_hardcore(enabled):
 
     try:
         _patch_level_dat_hardcore(path, enabled)
+    finally:
+        if was_running:
+            subprocess.run(["systemctl", "start", "bedrock"], timeout=30)
+
+
+# ---- Achievements -----------------------------------------------------------
+# Bedrock refuses achievements for a world while cheats are on (allow-cheats / level.dat
+# commandsEnabled) or once any player has been in creative (hasBeenLoadedInCreative). Both are
+# plain TAG_Byte flags in level.dat; clearing them with cheats off restores achievements.
+_COMMANDS_ENABLED_PAT = b"\x01\x0f\x00commandsEnabled"
+_LOADED_IN_CREATIVE_PAT = b"\x01\x17\x00hasBeenLoadedInCreative"
+
+
+def _read_level_byte(data, pat):
+    i = data.find(pat)
+    return None if i < 0 else data[i + len(pat)]
+
+
+def read_achievements():
+    """{'enabled': bool|None, 'allowCheats': bool, 'commandsEnabled': bool|None, 'loadedInCreative': bool|None}"""
+    props = read_properties()
+    allow_cheats = props.get("allow-cheats", "true").strip().lower() == "true"
+    try:
+        with open(_level_dat_path(), "rb") as f:
+            data = f.read()
+    except FileNotFoundError:
+        return {"enabled": None, "allowCheats": allow_cheats, "commandsEnabled": None, "loadedInCreative": None}
+    ce = _read_level_byte(data, _COMMANDS_ENABLED_PAT)
+    lc = _read_level_byte(data, _LOADED_IN_CREATIVE_PAT)
+    enabled = None if ce is None or lc is None else (not allow_cheats and ce == 0 and lc == 0)
+    return {"enabled": enabled, "allowCheats": allow_cheats, "commandsEnabled": None if ce is None else ce == 1, "loadedInCreative": None if lc is None else lc == 1}
+
+
+def _achievements_enabled_safe():
+    # /status must never fail because of this extra field
+    try:
+        return read_achievements().get("enabled")
+    except Exception:
+        return None
+
+
+def _write_preserving_owner(path, data):
+    """Atomic replace that keeps the original file's owner and mode. World paths contain spaces and
+    '#' ("World #1 ..."), so no shell is involved; BDS runs as minecraft and must be able to rewrite it."""
+    st = os.stat(path)
+    tmp = path + ".tmp"
+    with open(tmp, "wb") as f:
+        f.write(data)
+    os.chmod(tmp, st.st_mode & 0o7777)
+    os.chown(tmp, st.st_uid, st.st_gid)
+    os.replace(tmp, path)
+
+
+def _set_server_property(key, value):
+    path = os.path.join(BDS_PATH, "server.properties")
+    with open(path) as f:
+        lines = f.read().splitlines()
+    out, seen = [], False
+    for line in lines:
+        if line.startswith(key + "="):
+            out.append(f"{key}={value}"); seen = True
+        else:
+            out.append(line)
+    if not seen:
+        out.append(f"{key}={value}")
+    _write_preserving_owner(path, ("\n".join(out) + "\n").encode())
+
+
+def write_achievements(enabled):
+    """enabled=True: cheats off + both flags cleared. enabled=False: cheats back on. Cycles BDS
+    around the level.dat patch exactly like the hardcore toggle (BDS rewrites level.dat on stop)."""
+    path = _level_dat_path()
+    if not os.path.exists(path):
+        raise ValueError("level.dat not found")
+    with open(path, "rb") as f:
+        data = f.read()
+    if data.find(_COMMANDS_ENABLED_PAT) < 0 or data.find(_LOADED_IN_CREATIVE_PAT) < 0:
+        raise ValueError("achievement flags not found in level.dat")
+
+    was_running = is_running()
+    if was_running:
+        screen_cmd("stop")
+        for _ in range(30):
+            time.sleep(1)
+            if not is_running():
+                break
+        else:
+            raise ValueError("BDS did not stop within 30s; aborting achievements toggle")
+    try:
+        _set_server_property("allow-cheats", "false" if enabled else "true")
+        with open(path, "rb") as f:
+            data = bytearray(f.read())
+        for pat, value in ((_COMMANDS_ENABLED_PAT, 0 if enabled else 1), (_LOADED_IN_CREATIVE_PAT, 0 if enabled else None)):
+            if value is None:
+                continue
+            i = data.find(pat)
+            data[i + len(pat)] = value
+        _write_preserving_owner(path, bytes(data))
+    finally:
+        if was_running:
+            subprocess.run(["systemctl", "start", "bedrock"], timeout=30)
+
+
+# Bedrock LE NBT writer for the world's experiments compound. We need this because
+# the "Beta APIs" toggle is a flag inside level.dat, not server.properties — and
+# script packs targeting `@minecraft/server` beta channel won't load without it.
+_EXPERIMENTS_PAT = b"\x0a\x0b\x00experiments"  # TAG_Compound id + LE name length 11 + "experiments"
+
+
+def _walk_byte_compound(data, start):
+    """Walk a TAG_Compound that contains only TAG_Byte children (which is what
+    the experiments compound is). Returns (flags_dict, end_pos) where flags_dict
+    maps name -> offset_of_value_byte and end_pos is the index of the TAG_End byte."""
+    flags = {}
+    i = start
+    while i < len(data):
+        tag_id = data[i]
+        if tag_id == 0:
+            return flags, i  # TAG_End
+        if tag_id != 1:
+            raise ValueError(f"unexpected NBT tag id {tag_id} in experiments compound")
+        name_len = int.from_bytes(data[i+1:i+3], "little")
+        name = bytes(data[i+3:i+3+name_len]).decode("utf-8", errors="replace")
+        value_pos = i + 3 + name_len
+        flags[name] = value_pos
+        i = value_pos + 1
+    raise ValueError("walked off end of level.dat without finding TAG_End for experiments compound")
+
+
+def read_beta_apis():
+    """Return True if the gametest experiment is enabled (proxy for 'Beta APIs')."""
+    path = _level_dat_path()
+    try:
+        with open(path, "rb") as f:
+            data = f.read()
+    except FileNotFoundError:
+        return None
+    i = data.find(_EXPERIMENTS_PAT)
+    if i < 0:
+        return False
+    body_start = i + len(_EXPERIMENTS_PAT)
+    try:
+        flags, _ = _walk_byte_compound(data, body_start)
+    except Exception:
+        return False
+    pos = flags.get("gametest")
+    return pos is not None and data[pos] == 1
+
+
+def _beta_apis_safe():
+    # /status must never fail because of this extra field
+    try:
+        return read_beta_apis()
+    except Exception:
+        return None
+
+
+def _patch_level_dat_beta_apis(path, enabled):
+    with open(path, "rb") as f:
+        data = bytearray(f.read())
+    if len(data) < 8:
+        raise ValueError("level.dat too small to be valid")
+
+    i = data.find(_EXPERIMENTS_PAT)
+    if i < 0:
+        raise ValueError("experiments compound not found in level.dat")
+    body_start = i + len(_EXPERIMENTS_PAT)
+    flags, end_pos = _walk_byte_compound(data, body_start)
+
+    # Mirror what Bedrock writes when the player toggles experiments in-game.
+    if "experiments_ever_used" in flags:
+        data[flags["experiments_ever_used"]] = 1 if enabled else data[flags["experiments_ever_used"]]
+    if "saved_with_toggled_experiments" in flags:
+        data[flags["saved_with_toggled_experiments"]] = 1 if enabled else data[flags["saved_with_toggled_experiments"]]
+
+    if "gametest" in flags:
+        data[flags["gametest"]] = 1 if enabled else 0
+        size_delta = 0
+    else:
+        if not enabled:
+            return  # nothing to disable
+        # Splice TAG_Byte gametest=1 just before the compound's TAG_End. Inserting
+        # is fine because NBT compounds aren't length-prefixed — TAG_End is the only
+        # delimiter, and all NBT siblings/parents end the same way.
+        new_tag = b"\x01\x08\x00gametest\x01"
+        data[end_pos:end_pos] = new_tag
+        size_delta = len(new_tag)
+
+    if size_delta:
+        # Header layout: version (LE u32) | file_length (LE u32) | NBT payload.
+        old_len = int.from_bytes(data[4:8], "little")
+        data[4:8] = (old_len + size_delta).to_bytes(4, "little")
+
+    # keep level.dat owned by minecraft: BDS rewrites it on every stop
+    _write_preserving_owner(path, bytes(data))
+
+
+def write_beta_apis(enabled):
+    path = _level_dat_path()
+    if not os.path.exists(path):
+        raise ValueError("level.dat not found")
+
+    # Same constraint as hardcore: BDS rewrites level.dat on shutdown, so patch
+    # only while BDS is fully stopped.
+    was_running = is_running()
+    if was_running:
+        screen_cmd("stop")
+        for _ in range(30):
+            time.sleep(1)
+            if not is_running():
+                break
+        else:
+            raise ValueError("BDS did not stop within 30s; aborting beta-apis toggle")
+
+    try:
+        _patch_level_dat_beta_apis(path, enabled)
     finally:
         if was_running:
             subprocess.run(["systemctl", "start", "bedrock"], timeout=30)
@@ -252,12 +492,13 @@ def get_version():
 
 
 _status_cache = {"data": None, "time": 0}
-_STATUS_TTL = 2
+_STATUS_TTL = 5  # roughly matches the webui's SWR refreshInterval
+_status_refresh_lock = threading.Lock()
 
-def get_status():
-    now = time.time()
-    if _status_cache["data"] is not None and (now - _status_cache["time"]) < _STATUS_TTL:
-        return _status_cache["data"]
+
+def _build_status():
+    """Synchronously fetch fresh status. The slow part is the `list` command,
+    which round-trips through screen → BDS → server.log (~3-4s)."""
     running = is_running()
     props = read_properties()
     result = {
@@ -270,6 +511,8 @@ def get_status():
         "difficulty": props.get("difficulty", "normal"),
         "gamemode": props.get("gamemode", "survival"),
         "hardcore": read_hardcore() or False,
+        "achievements": _achievements_enabled_safe(),
+        "betaApis": _beta_apis_safe(),
     }
 
     if running:
@@ -293,6 +536,94 @@ def get_status():
     _status_cache["data"] = result
     _status_cache["time"] = time.time()
     return result
+
+
+def _refresh_status_background():
+    try:
+        _build_status()
+    except Exception:
+        pass
+    finally:
+        _status_refresh_lock.release()
+
+
+def get_status():
+    """Stale-while-revalidate: fresh cache → return it; stale cache → return stale
+    AND kick off an async refresh; no cache at all → fetch synchronously (the
+    one slow request after bds-api starts). Webui never waits on the slow path
+    after the first hit."""
+    now = time.time()
+    cached = _status_cache["data"]
+    age = now - _status_cache["time"]
+
+    if cached is not None and age < _STATUS_TTL:
+        return cached
+
+    if cached is not None:
+        if _status_refresh_lock.acquire(blocking=False):
+            threading.Thread(target=_refresh_status_background, daemon=True).start()
+        return cached
+
+    return _build_status()
+
+
+_GAMERULE_NAMES = (
+    "keepInventory", "pvp", "showCoordinates", "naturalRegeneration",
+    "doDaylightCycle", "doWeatherCycle", "doFireTick", "tntExplodes",
+    "doMobSpawning", "mobGriefing", "doInsomnia",
+    "doTileDrops", "doEntityDrops", "doImmediateRespawn",
+    "commandBlocksEnabled", "showDeathMessages",
+)
+_gamerules_cache = {"data": None, "time": 0}
+_GAMERULES_TTL = 30  # rules rarely change; webui invalidates on toggle anyway
+_gamerules_refresh_lock = threading.Lock()
+
+
+def _build_gamerules():
+    if not is_running():
+        result = {r: False for r in _GAMERULE_NAMES}
+        _gamerules_cache["data"] = result
+        _gamerules_cache["time"] = time.time()
+        return result
+
+    output = send_many_and_capture([f"gamerule {r}" for r in _GAMERULE_NAMES], wait=1.5)
+    rules = {}
+    for r in _GAMERULE_NAMES:
+        # BDS prints something like "gamerule keepInventory = true" — match the
+        # nearest true/false after the rule name on its own line.
+        m = re.search(rf"\b{re.escape(r)}\b[^\n]*?\b(true|false)\b", output, re.IGNORECASE)
+        rules[r] = bool(m and m.group(1).lower() == "true")
+    _gamerules_cache["data"] = rules
+    _gamerules_cache["time"] = time.time()
+    return rules
+
+
+def _refresh_gamerules_background():
+    try:
+        _build_gamerules()
+    except Exception:
+        pass
+    finally:
+        _gamerules_refresh_lock.release()
+
+
+def get_gamerules():
+    """Same stale-while-revalidate pattern as /status, except first-fetch only
+    pays the wall once after bds-api starts (~1.5s) and refreshes happen lazily."""
+    now = time.time()
+    cached = _gamerules_cache["data"]
+    age = now - _gamerules_cache["time"]
+    if cached is not None and age < _GAMERULES_TTL:
+        return cached
+    if cached is not None:
+        if _gamerules_refresh_lock.acquire(blocking=False):
+            threading.Thread(target=_refresh_gamerules_background, daemon=True).start()
+        return cached
+    return _build_gamerules()
+
+
+def invalidate_gamerules_cache():
+    _gamerules_cache["data"] = None
 
 
 def do_backup():
@@ -408,7 +739,9 @@ def sanitize_folder_name(name, fallback):
     return cleaned or fallback
 
 
-_WORLD_NAME_RE = re.compile(r'^[a-zA-Z0-9][a-zA-Z0-9 _\-\.]{0,63}$')
+# Level names come from the dashboard, which allows punctuation like '#' ("World #1 ..."); keep the
+# path-safety intent (no slashes, backslashes or leading dots) without rejecting those names.
+_WORLD_NAME_RE = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9 _\-\.#'&+!(),]{0,63}$")
 
 def validate_world_name(world_name):
     # Strict allowlist: must start with alphanumeric, max 64 chars, no path traversal
@@ -457,9 +790,40 @@ def normalize_dependencies(dependencies):
     return result
 
 
+_TRAILING_COMMA_RE = re.compile(r",(\s*[}\]])")
+
+
+def loads_lenient(text):
+    """Parse a pack manifest the way the game does: Bedrock accepts // and /* */ comments, a BOM,
+    trailing commas and junk after the closing brace, and plenty of popular add-ons ship with them."""
+    if isinstance(text, bytes):
+        text = text.decode("utf-8-sig", errors="replace")
+    text = text.lstrip("﻿")
+    out, i, n, in_str = [], 0, len(text), False
+    while i < n:
+        c = text[i]
+        if in_str:
+            out.append(c)
+            if c == "\\" and i + 1 < n:
+                out.append(text[i + 1]); i += 2; continue
+            if c == '"':
+                in_str = False
+            i += 1
+        elif c == '"':
+            in_str = True; out.append(c); i += 1
+        elif text.startswith("//", i):
+            j = text.find("\n", i); i = n if j < 0 else j
+        elif text.startswith("/*", i):
+            j = text.find("*/", i + 2); i = n if j < 0 else j + 2
+        else:
+            out.append(c); i += 1
+    cleaned = _TRAILING_COMMA_RE.sub(r"\1", "".join(out)).strip()
+    return json.JSONDecoder().raw_decode(cleaned)[0]
+
+
 def parse_manifest(manifest_path):
-    with open(manifest_path, "r") as f:
-        manifest = json.load(f)
+    with open(manifest_path, "rb") as f:
+        manifest = loads_lenient(f.read())
 
     header = manifest.get("header", {})
     modules = manifest.get("modules") or []
@@ -573,11 +937,32 @@ def list_world_addons(world_name):
 
 def safe_extract_zip(zip_file, dest_dir):
     root = os.path.realpath(dest_dir)
-    for member in zip_file.infolist():
+    members = zip_file.infolist()
+
+    for member in members:
         member_path = os.path.realpath(os.path.join(dest_dir, member.filename))
         if not member_path.startswith(root + os.sep) and member_path != root:
             raise ValueError("invalid archive path")
-    zip_file.extractall(dest_dir)
+
+    # Some addon archives contain a stray file entry at a path that another entry
+    # expects to be a directory (e.g. both "functions" as a file AND "functions/tick.json").
+    # zipfile.extractall would then ENOTDIR on the second one. Drop the colliding file
+    # entries — the directory wins because that's what the real content needs.
+    needed_dirs = set()
+    for member in members:
+        parts = [p for p in member.filename.split("/") if p]
+        for i in range(1, len(parts)):
+            needed_dirs.add("/".join(parts[:i]))
+
+    safe_members = []
+    for member in members:
+        normalized = member.filename.rstrip("/")
+        if not member.is_dir() and normalized in needed_dirs:
+            continue  # stray phantom file — would shadow a real directory
+        safe_members.append(member)
+
+    for member in safe_members:
+        zip_file.extract(member, dest_dir)
 
 
 def archive_has_manifest(zip_file):
@@ -764,26 +1149,34 @@ def remove_valid_known_pack(relative_path, pack_uuid):
 
 def set_world_pack_enabled(world_name, pack_type, pack_uuid, version, enabled):
     def update(data):
-        existing = [item for item in data if item.get("pack_id") == pack_uuid]
         if enabled:
-            if not existing:
-                data.append({"pack_id": pack_uuid, "version": version})
+            # Update version in place on re-install — BDS matches packs by uuid
+            # *and* version tuple, so leaving an old version here causes the
+            # pack to be silently dropped from the load stack.
+            for item in data:
+                if item.get("pack_id") == pack_uuid:
+                    item["version"] = version
+                    return
+            data.append({"pack_id": pack_uuid, "version": version})
         else:
             data[:] = [item for item in data if item.get("pack_id") != pack_uuid]
 
     update_world_packs(world_name, pack_type, update)
 
 
-def record_installed_addon(pack_uuid, mod_id, file_id, name):
+def record_installed_addon(pack_uuid, mod_id, file_id, name, library_id=None):
     def update(data):
         data[:] = [item for item in data if item.get("uuid") != pack_uuid]
-        data.append({
+        entry = {
             "uuid": pack_uuid,
             "modId": mod_id,
             "fileId": file_id,
             "name": name,
             "installedAt": datetime.now().isoformat(),
-        })
+        }
+        if library_id:
+            entry["libraryId"] = library_id
+        data.append(entry)
 
     update_json_file(INSTALLED_ADDONS_FILE, [], update)
 
@@ -795,7 +1188,7 @@ def remove_installed_addon(pack_uuid):
     update_json_file(INSTALLED_ADDONS_FILE, [], update)
 
 
-def install_pack_archive(archive_path, world_name, mod_id, file_id, addon_name):
+def install_pack_archive(archive_path, world_name, mod_id, file_id, addon_name, library_id=None):
     with tempfile.TemporaryDirectory() as extract_dir:
         try:
             with zipfile.ZipFile(archive_path, "r") as zip_file:
@@ -836,6 +1229,7 @@ def install_pack_archive(archive_path, world_name, mod_id, file_id, addon_name):
             mod_id,
             file_id,
             addon_name or parsed.get("name", ""),
+            library_id=library_id,
         )
 
         addon = build_addon_info(dest_path, storage_type, {
@@ -867,6 +1261,34 @@ def install_addon(url, world_name, mod_id, file_id, addon_name):
         installed = []
         for pack_archive in pack_archives:
             installed.append(install_pack_archive(pack_archive, world_name, mod_id, file_id, addon_name))
+        return installed
+
+
+def _validate_local_archive_path(path):
+    # Library installs land here via host-api `pct push` to /tmp/. Validate the
+    # caller can't escape that directory by symlink trickery or absolute paths.
+    if not path or not isinstance(path, str):
+        raise ValueError("missing path")
+    real = os.path.realpath(path)
+    tmp_real = os.path.realpath("/tmp")
+    if real != tmp_real and not real.startswith(tmp_real + os.sep):
+        raise ValueError("path must resolve under /tmp/")
+    if not os.path.isfile(real):
+        raise ValueError("path is not a regular file")
+    return real
+
+
+def install_addon_local(archive_path, world_name, mod_id, file_id, addon_name, library_id):
+    validate_world_name(world_name)
+    real_path = _validate_local_archive_path(archive_path)
+
+    with tempfile.TemporaryDirectory() as temp_dir:
+        pack_archives = extract_pack_archives(real_path, temp_dir)
+        installed = []
+        for pack_archive in pack_archives:
+            installed.append(install_pack_archive(
+                pack_archive, world_name, mod_id, file_id, addon_name, library_id=library_id,
+            ))
         return installed
 
 
@@ -1049,6 +1471,13 @@ class Handler(BaseHTTPRequestHandler):
             except (FileNotFoundError, json.JSONDecodeError):
                 self._json(200, [])
 
+        elif p == "/gamerules":
+            self._json(200, get_gamerules())
+        elif p == "/achievements":
+            self._json(200, read_achievements())
+        elif p == "/beta-apis":
+            self._json(200, {"enabled": read_beta_apis()})
+
         elif p == "/addons":
             self._json(200, list_installed_addons())
         elif p == "/addons/world":
@@ -1087,6 +1516,11 @@ class Handler(BaseHTTPRequestHandler):
                 self._json(400, {"error": "server not running"})
                 return
             output = send_and_capture(cmd)
+            # If the command writes a gamerule (`gamerule X true|false`), bust the
+            # cache so the next /gamerules call reflects it instead of stale state.
+            stripped = cmd.strip().lower()
+            if stripped.startswith("gamerule ") and any(stripped.endswith(suffix) for suffix in (" true", " false", " 1", " 0")):
+                invalidate_gamerules_cache()
             self._json(200, {"output": output})
 
         elif p == "/gamemode":
@@ -1113,6 +1547,26 @@ class Handler(BaseHTTPRequestHandler):
             except Exception as e:
                 self._json(500, {"error": str(e)}); return
             self._json(200, {"success": True, "hardcore": enabled})
+
+        elif p == "/achievements":
+            enabled = bool(body.get("enabled"))
+            try:
+                write_achievements(enabled)
+            except ValueError as e:
+                self._json(400, {"error": str(e)}); return
+            except Exception as e:
+                self._json(500, {"error": str(e)}); return
+            self._json(200, {"success": True, "achievements": enabled})
+
+        elif p == "/beta-apis":
+            enabled = bool(body.get("enabled"))
+            try:
+                write_beta_apis(enabled)
+            except ValueError as e:
+                self._json(400, {"error": str(e)}); return
+            except Exception as e:
+                self._json(500, {"error": str(e)}); return
+            self._json(200, {"success": True, "betaApis": enabled})
 
         elif p == "/power":
             action = body.get("action", "")
@@ -1246,6 +1700,33 @@ class Handler(BaseHTTPRequestHandler):
                     body.get("modId"),
                     body.get("fileId"),
                     str(body.get("addonName") or "").strip(),
+                )
+                self._json(200, {"success": True, "packs": packs, "restartRequired": True})
+            except FileNotFoundError as e:
+                self._json(404, {"error": str(e)})
+            except ValueError as e:
+                self._json(400, {"error": str(e)})
+            except Exception as e:
+                self._json(500, {"error": str(e)})
+
+        elif p == "/addons/install-local":
+            path = str(body.get("path") or "").strip()
+            world_name = str(body.get("worldName") or "").strip()
+            library_id = str(body.get("libraryId") or "").strip() or None
+            if not path:
+                self._json(400, {"error": "missing path"})
+                return
+            if not world_name:
+                self._json(400, {"error": "missing worldName"})
+                return
+            try:
+                packs = install_addon_local(
+                    path,
+                    world_name,
+                    body.get("modId"),
+                    body.get("fileId"),
+                    str(body.get("addonName") or "").strip(),
+                    library_id,
                 )
                 self._json(200, {"success": True, "packs": packs, "restartRequired": True})
             except FileNotFoundError as e:
