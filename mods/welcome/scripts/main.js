@@ -1,11 +1,12 @@
 // Welcome: one friendly welcome box per player, shown once they are actually ready for it.
 //
 // Why this exists: several add-ons pop their own box on a player's first spawn (language pickers,
-// "thanks for installing" screens), and Bedrock shows only one form at a time, so they fight with
-// Origins' class picker and each other. This pack quiets the ones we know about, waits until the
-// player has picked an origin (when Origins is installed), then shows a single, tidy welcome.
+// "quick setup" screens, "thanks for installing" notes), and Bedrock shows only one form at a time,
+// so they fight with Origins' class picker and each other. This pack quiets the ones we know about,
+// waits until the player has picked an origin (when Origins is installed), then shows a single,
+// tidy welcome with an Origins guide.
 //
-// Players can re-open it any time by typing  !welcome  in chat (no cheats needed).
+// The host can re-open it for a player from the dashboard console:  tag "Name" add welcome_show
 import { world, system } from "@minecraft/server";
 import { ActionFormData, FormCancelationReason } from "@minecraft/server-ui";
 
@@ -26,7 +27,7 @@ const FEATURES = [
 ];
 const TIPS = [
   "New structures and creatures only appear in parts of the map nobody has explored yet, so head somewhere new.",
-  "Type §a!welcome§r in chat to see this box again.",
+  "Lost this box? Ask the host to bring it back from the dashboard.",
   "This world restarts now and then when add-ons change. If it's not in the LAN list afterwards, join it by address once.",
 ];
 // Every origin in Origins BE 1.5.5, from its own text files (names and blurbs), grouped by pack.
@@ -110,6 +111,17 @@ function hasChosenOrigin(player) {
   }
 }
 
+function originName(player) {
+  // Origins tags the player "origins:selected_<name>" next to the generic "origins:selected_origin".
+  try {
+    const tag = player.getTags().find((t) => t.startsWith("origins:selected_") && t !== "origins:selected_origin");
+    if (!tag) return null;
+    return tag.slice("origins:selected_".length).replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+  } catch {
+    return null;
+  }
+}
+
 function quietOtherFirstJoinBoxes(player) {
   if (!QUIET_OTHER_FIRST_JOIN_BOXES) return;
   // Farmer's Delight shows its welcome unless the player already carries this tag.
@@ -125,39 +137,10 @@ function quietOtherFirstJoinBoxes(player) {
   } catch {}
 }
 
-// playerJoin fires before the first spawn, so flags set here beat the other packs' spawn handlers.
-world.afterEvents.playerJoin.subscribe(({ playerId }) => {
-  let tries = 0;
-  const poll = system.runInterval(() => {
-    tries += 1;
-    let player = null;
-    try {
-      player = world.getPlayers().find((p) => p.id === playerId) ?? null;
-    } catch {}
-    if (player) {
-      quietOtherFirstJoinBoxes(player);
-      system.clearRun(poll);
-    } else if (tries > 200) {
-      system.clearRun(poll);
-    }
-  }, 1);
-});
-
 function markSeen(player) {
   try {
     player.setDynamicProperty(SEEN, true);
   } catch {}
-}
-
-function originName(player) {
-  // Origins tags the player "origins:selected_<name>" next to the generic "origins:selected_origin".
-  try {
-    const tag = player.getTags().find((t) => t.startsWith("origins:selected_") && t !== "origins:selected_origin");
-    if (!tag) return null;
-    return tag.slice("origins:selected_".length).replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
-  } catch {
-    return null;
-  }
 }
 
 function bodyText(player) {
@@ -170,7 +153,9 @@ async function showList(player, title, rows) {
   const form = new ActionFormData().title(title);
   const text = rows.map(([name, desc]) => `§e§l${name}§r\n${desc}`).join("\n\n");
   form.body(text).button("Back");
-  await form.show(player);
+  try {
+    await form.show(player);
+  } catch {}
 }
 
 async function showOriginsGuide(player, page = 0) {
@@ -231,6 +216,7 @@ async function showMain(player, attempt = 0) {
   if (pick) await pick[1]();
 }
 
+// playerJoin fires before the first spawn, so flags set here beat the other packs' spawn handlers.
 world.afterEvents.playerJoin.subscribe(({ playerId }) => {
   let tries = 0;
   const poll = system.runInterval(() => {
@@ -247,74 +233,6 @@ world.afterEvents.playerJoin.subscribe(({ playerId }) => {
     }
   }, 1);
 });
-
-function markSeen(player) {
-  try {
-    player.setDynamicProperty(SEEN, true);
-  } catch {}
-}
-
-function originName(player) {
-  // Origins tags the player "origins:selected_<name>" next to the generic "origins:selected_origin".
-  try {
-    const tag = player.getTags().find((t) => t.startsWith("origins:selected_") && t !== "origins:selected_origin");
-    if (!tag) return null;
-    return tag.slice("origins:selected_".length).replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
-  } catch {
-    return null;
-  }
-}
-
-function bodyText(player) {
-  const origin = originName(player);
-  const who = origin ? `§lHi ${player.name}, the ${origin}!§r` : `§lHi ${player.name}!§r`;
-  return `${who}\n\n${INTRO}\n\nPick a button to look around, or jump straight in.`;
-}
-
-async function showList(player, title, rows) {
-  const form = new ActionFormData().title(title);
-  const text = rows.map(([name, desc]) => `§e§l${name}§r\n${desc}`).join("\n\n");
-  form.body(text).button("Back");
-  await form.show(player);
-}
-
-async function showMain(player, attempt = 0) {
-  if (!isValid(player)) return;
-  const form = new ActionFormData()
-    .title(TITLE)
-    .body(bodyText(player))
-    .button("What's in this world")
-    .button("Tips")
-    .button("Let's play!");
-  let response;
-  try {
-    response = await form.show(player);
-  } catch {
-    return;
-  }
-  if (response.canceled) {
-    // Another box is open (Origins, a chest, a menu): try again shortly instead of giving up.
-    if (response.cancelationReason === FormCancelationReason.UserBusy && attempt < BUSY_RETRIES) {
-      system.runTimeout(() => showMain(player, attempt + 1), BUSY_RETRY_TICKS);
-      return;
-    }
-    markSeen(player); // closed on purpose: don't nag, !welcome brings it back
-    return;
-  }
-  if (response.selection === 0) {
-    await showList(player, "What's in this world", FEATURES);
-    return showMain(player);
-  }
-  if (response.selection === 1) {
-    await showList(player, "Tips", TIPS.map((t) => ["Tip", t]));
-    return showMain(player);
-  }
-  markSeen(player);
-  try {
-    player.playSound("random.levelup");
-    player.onScreenDisplay.setTitle(`§aHave fun, ${player.name}!`, { fadeInDuration: 5, stayDuration: 40, fadeOutDuration: 15 });
-  } catch {}
-}
 
 world.afterEvents.playerSpawn.subscribe(({ player, initialSpawn }) => {
   if (!initialSpawn) return;
@@ -340,10 +258,26 @@ world.afterEvents.playerSpawn.subscribe(({ player, initialSpawn }) => {
   }, POLL_TICKS);
 });
 
-// "!welcome" in chat re-opens the box for that player. (The stable 2.0 API has no before-event for
-// chat, so the message itself still shows; it's harmless.)
-world.afterEvents.chatSend.subscribe((event) => {
-  if (event.message.trim().toLowerCase() !== "!welcome") return;
-  const player = event.sender;
-  system.run(() => showMain(player));
-});
+// Re-open on request. The stable 2.0 scripting API has no chat events, so the hook is a tag: from the
+// dashboard console run  tag "Name" add welcome_show  (or /scriptevent welcome:show as an operator).
+const SHOW_TAG = "welcome_show";
+system.runInterval(() => {
+  let players = [];
+  try {
+    players = world.getPlayers({ tags: [SHOW_TAG] });
+  } catch {}
+  for (const player of players) {
+    try {
+      player.removeTag(SHOW_TAG);
+    } catch {}
+    showMain(player);
+  }
+}, 40);
+
+try {
+  system.afterEvents.scriptEventReceive.subscribe((event) => {
+    if (event.id !== "welcome:show") return;
+    const player = event.sourceEntity;
+    if (player && typeof player.name === "string") showMain(player);
+  });
+} catch {}
