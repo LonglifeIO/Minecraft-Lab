@@ -835,15 +835,45 @@ def parse_manifest(manifest_path):
     if not module_type and modules:
         module_type = modules[0].get("type", "")
 
+    pack_dir = os.path.dirname(manifest_path)
     return {
         "uuid": header.get("uuid"),
-        "name": header.get("name", ""),
-        "description": header.get("description", ""),
+        "name": _display_text(header.get("name", ""), pack_dir),
+        "description": _display_text(header.get("description", ""), pack_dir),
         "version": header.get("version", []),
         "type": module_type,
         "dependencies": normalize_dependencies(manifest.get("dependencies", [])),
         "manifest": manifest,
     }
+
+
+_COLOR_CODE_RE = re.compile(r"\u00a7.")
+
+
+def _display_text(value, pack_dir):
+    """Manifest names like 'pack.name' are translation keys: look them up in the pack's own
+    texts/*.lang (en_US first). Also drop Minecraft colour codes (§x) so the dashboard reads cleanly."""
+    text = str(value or "")
+    if text and " " not in text and "." in text:
+        texts = os.path.join(pack_dir, "texts")
+        candidates = [os.path.join(texts, n) for n in ("en_US.lang", "en_GB.lang")]
+        try:
+            candidates += sorted(os.path.join(texts, n) for n in os.listdir(texts) if n.endswith(".lang"))
+        except OSError:
+            pass
+        for path in candidates:
+            try:
+                with open(path, encoding="utf-8-sig", errors="replace") as f:
+                    for line in f:
+                        if line.startswith(text + "="):
+                            text = line.split("=", 1)[1].split("\t#")[0].strip()
+                            break
+                    else:
+                        continue
+                break
+            except OSError:
+                continue
+    return _COLOR_CODE_RE.sub("", text).strip()
 
 
 def build_addon_info(pack_dir, pack_type, installed_by_uuid):

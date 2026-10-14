@@ -599,10 +599,29 @@ def reset_world(world_id, name, seed=""):
             return {"error": "Could not archive the old world; nothing was changed and BDS was restarted"}
         print(f"[reset] {world_id}: old world '{old_level}' archived to {archive}", flush=True)
 
+    # Remember which add-ons the old world had enabled: the pack files stay in behavior_packs/ and
+    # resource_packs/, only the per-world enable lists live inside the world folder that is wiped.
+    pack_lists = {}
+    for fn in ("world_behavior_packs.json", "world_resource_packs.json"):
+        out, code = run_argv(["pct", "exec", str(ctid), "--", "cat", f"/opt/bedrock/worlds/{old_level}/{fn}"]) if old_level else ("", 1)
+        if code == 0 and out.strip():
+            try:
+                if isinstance(json.loads(out), list):
+                    pack_lists[fn] = out
+            except ValueError:
+                pass
+
     # 3. Wipe the save data and point server.properties at the new world
     run_argv(["pct", "exec", str(ctid), "--", "bash", "-c",
               "rm -rf /opt/bedrock/worlds/* && rm -f /opt/bedrock/logs/server.log"], timeout=120)
     _write_properties(ctid, {"server-name": name, "level-name": name, "level-seed": seed, "allow-cheats": "false"})
+
+    # Pre-create the new world folder with the same add-ons enabled; BDS generates the world into it.
+    if pack_lists:
+        _ct_sh(ctid, 'mkdir -p "/opt/bedrock/worlds/$1" && chown minecraft:minecraft "/opt/bedrock/worlds/$1"', name)
+        for fn, content in pack_lists.items():
+            _ct_sh(ctid, 'printf "%s" "$3" > "/opt/bedrock/worlds/$1/$2" && chown minecraft:minecraft "/opt/bedrock/worlds/$1/$2"', name, fn, content)
+        print(f"[reset] {world_id}: carried over {len(pack_lists)} add-on list(s) into the new world", flush=True)
 
     # 4. Start BDS and wait for the new world to generate
     run(f"pct exec {ctid} -- systemctl start bedrock", timeout=60)
