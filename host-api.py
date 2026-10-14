@@ -614,7 +614,11 @@ def reset_world(world_id, name, seed=""):
     # 3. Wipe the save data and point server.properties at the new world
     run_argv(["pct", "exec", str(ctid), "--", "bash", "-c",
               "rm -rf /opt/bedrock/worlds/* && rm -f /opt/bedrock/logs/server.log"], timeout=120)
-    _write_properties(ctid, {"server-name": name, "level-name": name, "level-seed": seed, "allow-cheats": "false"})
+    # Keep the world's cheats choice across a reset: a playground that runs with cheats on (achievements
+    # off) stays that way, a family world with achievements on stays achievement-safe.
+    cheats_now, _ = run(f"pct exec {ctid} -- grep -m1 '^allow-cheats=' /opt/bedrock/server.properties")
+    allow_cheats = "true" if cheats_now.strip().lower() == "allow-cheats=true" else "false"
+    _write_properties(ctid, {"server-name": name, "level-name": name, "level-seed": seed, "allow-cheats": allow_cheats})
 
     # Pre-create the new world folder with the same add-ons enabled; BDS generates the world into it.
     if pack_lists:
