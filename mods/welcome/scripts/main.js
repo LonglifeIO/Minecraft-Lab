@@ -40,7 +40,7 @@ const SCREEN = [
   ["Green bar: stamina (Roll and Stamina)", "Sprinting, climbing and rolling spend it; it refills while you rest. Roll: jump, then press sneak in mid-air."],
   ["Spell panel and mana (A Magic Way)", "Your chosen spell and how much mana you have. Spells come from scrolls; sneak cancels a cast."],
   ["Name under the crosshair (WAILA)", "Whatever block or creature you're looking at."],
-  ["Armor icons with little bars (Durability Armor Viewer)", "How worn each piece is. /dav:setting moves or hides it."],
+  ["Gold hearts above your health", "Bonus hearts from your origin."],
   ["Bar above the hearts (Origins)", "Your origin's power charging up. Each origin explains its own powers in the picker's View page."],
   ["Testing (operators)", "/function admin/on for creative, admin/off to play normally, admin/god to stay unhurt, admin/kit for basic gear."],
 ];
