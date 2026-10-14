@@ -731,7 +731,14 @@ def update_json_file(path, default, update_fn):
         result = update_fn(data)
         atomic_write_json(path, data)
         fcntl.flock(lock.fileno(), fcntl.LOCK_UN)
-        return result
+    # The lock file lives next to the world's pack list; give it the same owner as the list so a
+    # root-owned leftover never sits inside the minecraft user's world folder.
+    try:
+        st = os.stat(path)
+        os.chown(lock_path, st.st_uid, st.st_gid)
+    except OSError:
+        pass
+    return result
 
 
 def sanitize_folder_name(name, fallback):
