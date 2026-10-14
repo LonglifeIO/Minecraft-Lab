@@ -22,7 +22,6 @@ const FEATURES = [
   ["Roll and Stamina", "A stamina bar, dodge rolls and wall climbing."],
   ["WAILA", "Names whatever you look at."],
   ["A Magic Way", "100+ spells from scrolls, with a mana bar."],
-  ["Farmer's Delight", "New crops, a cooking pot, a cutting board and lots of meals."],
   ["Bedrock Essentials+", "Tree capitator, vein miner and other small survival helpers."],
   ["Effortless Building", "Place lines, walls and floors in one go, like the Java mod."],
   ["More Ores", "28 new ores with matching armor and tools."],
