@@ -677,7 +677,19 @@
             "dav_title_data_binding@hud_common_ds-dav.title_text_data": {}
           },
           {
-            "dav_content@hud_ds-dav.panel": {}
+            "dav_content@hud_ds-dav.panel": {
+              "anchor_from": "bottom_right",
+              "anchor_to": "bottom_right",
+              "offset": [
+                -12,
+                -10
+              ],
+              "size": [
+                "100%cm",
+                "100%cm"
+              ],
+              "layer": 12
+            }
           }
         ]
       }
