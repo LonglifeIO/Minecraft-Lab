@@ -4,7 +4,7 @@ import { useState, useMemo, useRef } from "react";
 import Link from "next/link";
 import useSWR from "swr";
 import { useRouter } from "next/navigation";
-import type { LibraryEntry } from "@/lib/library";
+import { sourceLabel, type LibraryEntry } from "@/lib/library";
 import suggested from "@/data/suggested-addons.json";
 
 const fetcher = (url: string) => fetch(url).then((r) => {
@@ -15,9 +15,9 @@ const fetcher = (url: string) => fetch(url).then((r) => {
 
 const TYPE_FILTERS: { label: string; value: "" | LibraryEntry["type"] }[] = [
   { label: "All", value: "" },
-  { label: "Downloaded", value: "downloaded" },
-  { label: "Custom", value: "custom" },
-  { label: "Imported", value: "imported" },
+  { label: "CurseForge", value: "downloaded" },
+  { label: "Made here", value: "custom" },
+  { label: "Uploaded", value: "imported" },
 ];
 
 function formatBytes(n: number): string {
@@ -291,7 +291,7 @@ export default function LibraryPage() {
                     className={`mc-category absolute left-2 top-2 z-10 px-2 py-0.5 uppercase tracking-wider font-bold border ${typeBadgeClass(entry.type)}`}
                     style={{ fontSize: 11 }}
                   >
-                    {entry.type}
+                    {sourceLabel(entry)}
                   </span>
                   {entry.needsBetaApis && (
                     <span

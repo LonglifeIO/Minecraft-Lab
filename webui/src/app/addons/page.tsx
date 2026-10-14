@@ -156,7 +156,7 @@ function AddonsContent() {
       <div className="mc-dark-panel flex flex-wrap items-center justify-between gap-2 px-4 py-2 mb-4">
         <div className="flex items-center gap-3 min-w-0">
           <Link href="/" className="mc-btn mc-btn-sm mc-btn-icon" aria-label="Back to worlds">&lt;</Link>
-          <span className="mc-title text-sm">Browse Add-ons</span>
+          <span className="mc-title text-sm">Browse Add-ons <span className="mc-note" style={{ fontSize: 11 }}>· CurseForge catalogue</span></span>
         </div>
         <div className="mc-toolbar">
           <Link href="/addons/library" className="mc-btn mc-btn-sm">📚 Library</Link>

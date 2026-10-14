@@ -97,3 +97,12 @@ export async function uploadToLibrary(payload: UploadPayload) {
     body: JSON.stringify(payload),
   });
 }
+
+// Where an add-on came from: the CurseForge catalogue, built on this server, or a file someone uploaded
+// (MCPEDL, Planet Minecraft, ...). Falls back to the raw type for anything older.
+export function sourceLabel(entry: Pick<LibraryEntry, "type" | "source">): string {
+  if (entry.source?.kind === "curseforge" || entry.type === "downloaded") return "CurseForge";
+  if (entry.type === "custom") return "Made here";
+  if (entry.source?.kind === "upload" || entry.type === "imported") return "Uploaded";
+  return entry.type;
+}

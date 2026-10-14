@@ -6,7 +6,7 @@ import Link from "next/link";
 import useSWR from "swr";
 import { useToast } from "@/components/toast";
 import { useDemoMode } from "@/lib/demoMode";
-import type { LibraryEntry } from "@/lib/library";
+import { sourceLabel, type LibraryEntry } from "@/lib/library";
 
 const fetcher = (url: string) => fetch(url).then((r) => {
   if (r.status === 401) throw new Error("unauthorized");
@@ -161,7 +161,7 @@ export default function LibraryEntryPage() {
                     className={`mc-category py-1 px-3 font-bold uppercase tracking-wider border ${typeBadgeClass(entry.type)}`}
                     style={{ fontSize: 11 }}
                   >
-                    {entry.type}
+                    {sourceLabel(entry)}
                   </span>
                   <span className="mc-category py-1 px-3 bg-black/40 uppercase tracking-wider" style={{ fontSize: 11 }}>
                     {formatBytes(entry.sizeBytes)}
