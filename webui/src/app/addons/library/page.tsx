@@ -63,53 +63,56 @@ function UploadAddon({ onDone }: { onDone: () => void }) {
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
 
-  async function upload(file: File) {
-    setMsg(null);
-    if (!/\.(mcaddon|mcpack|zip)$/i.test(file.name)) {
-      setMsg({ ok: false, text: "Pick a .mcaddon, .mcpack or .zip file." });
-      return;
-    }
-    if (file.size > MAX_UPLOAD) {
-      setMsg({ ok: false, text: "That file is over 150 MB." });
-      return;
-    }
-    setBusy(true);
+  async function uploadOne(file: File): Promise<string | null> {
+    if (!/\.(mcaddon|mcpack|zip)$/i.test(file.name)) return `${file.name}: pick a .mcaddon, .mcpack or .zip file.`;
+    if (file.size > MAX_UPLOAD) return `${file.name}: over 150 MB.`;
+    const name = file.name.replace(/\.(mcaddon|mcpack|zip)$/i, "").replace(/[_]+/g, " ").trim() || "Uploaded add-on";
     try {
-      const name = file.name.replace(/\.(mcaddon|mcpack|zip)$/i, "").replace(/[_]+/g, " ").trim() || "Uploaded add-on";
       const res = await fetch("/api/library", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name, contentBase64: await readAsBase64(file) }),
       });
       const body = await res.json().catch(() => ({}));
-      if (res.ok) {
-        setMsg({ ok: true, text: `Added "${body.name ?? name}" to your library.` });
-        onDone();
-      } else {
-        const err = String(body.error ?? "upload failed");
-        setMsg({ ok: false, text: /no packs|invalid/i.test(err) ? "That file isn't a Bedrock add-on (no packs found inside)." : err });
-      }
+      if (res.ok) return null;
+      const err = String(body.error ?? "upload failed");
+      return `${file.name}: ${/no packs|invalid/i.test(err) ? "not a Bedrock add-on (no packs found inside)." : err}`;
     } catch {
-      setMsg({ ok: false, text: "Upload failed. Try again." });
-    } finally {
-      setBusy(false);
-      if (input.current) input.current.value = "";
+      return `${file.name}: upload failed. Try again.`;
     }
+  }
+
+  // Several files can be picked at once (e.g. a folder of MCPEDL downloads); they go up one after another.
+  async function upload(files: File[]) {
+    setMsg(null);
+    setBusy(true);
+    const errors: string[] = [];
+    let added = 0;
+    for (const file of files) {
+      const err = await uploadOne(file);
+      if (err) errors.push(err); else added += 1;
+    }
+    setBusy(false);
+    if (input.current) input.current.value = "";
+    if (added) onDone();
+    const summary = added ? `Added ${added} add-on${added === 1 ? "" : "s"} to your library.` : "";
+    setMsg(errors.length ? { ok: false, text: [summary, ...errors].filter(Boolean).join(" ") } : { ok: true, text: summary });
   }
 
   return (
     <div className="mc-dark-panel p-3 mb-4">
       <div className="flex flex-wrap items-center gap-3">
         <button className="mc-btn mc-btn-amber mc-btn-sm" disabled={busy} onClick={() => input.current?.click()}>
-          {busy ? "Uploading..." : "Upload add-on"}
+          {busy ? "Uploading..." : "Upload add-ons"}
         </button>
-        <span className="mc-note">.mcaddon or .mcpack from MCPEDL, Planet Minecraft or anywhere else</span>
+        <span className="mc-note">.mcaddon or .mcpack files from MCPEDL, Planet Minecraft or anywhere else; pick several at once</span>
         <input
           ref={input}
           type="file"
           accept=".mcaddon,.mcpack,.zip"
+          multiple
           className="hidden"
-          onChange={(e) => { const f = e.target.files?.[0]; if (f) upload(f); }}
+          onChange={(e) => { const files = Array.from(e.target.files ?? []); if (files.length) upload(files); }}
         />
       </div>
       {msg && <p className={`text-xs mt-2 ${msg.ok ? "mc-green" : "mc-red"}`} role="status">{msg.text}</p>}
