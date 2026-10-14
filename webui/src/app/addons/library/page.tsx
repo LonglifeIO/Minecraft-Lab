@@ -190,6 +190,12 @@ function SuggestedAddons({ have, onAdded }: { have: Set<number>; onAdded: () => 
                         {"hudNote" in it && it.hudNote && (
                           <p className="mc-note text-[11px] mt-1">{String(it.hudNote)}</p>
                         )}
+                        {"companionNote" in it && it.companionNote && (
+                          <p className="mc-note text-[11px] mt-1">{String(it.companionNote)}</p>
+                        )}
+                        {"warning" in it && it.warning && (
+                          <p className="mc-red text-[11px] mt-1">{String(it.warning)}</p>
+                        )}
                       </div>
                       <button
                         className="mc-btn mc-btn-sm flex-shrink-0"

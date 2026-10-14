@@ -54,11 +54,11 @@
    "thumbUrl": "https://media.forgecdn.net/avatars/thumbnails/1240/692/256/256/638811819154429517.webp",
    "summary": "Create waypoints for quick teleportation! Public waypoints system with \"my favorites\" list! Each player can have and publish up to 999 waypo",
    "why": "Shared waypoints for everyone, with quick teleport.",
-   "needsBetaApis": false,
+   "needsBetaApis": true,
    "changesPlayer": false,
    "conflictsWith": [],
-   "testedWithStack": "2026-10-14: loads clean together with Origins, A Magic Way, Simple Waystone, Farmer's Delight and the rest of the Waystone_Playground set.",
-   "companionFileId": 8896050
+   "companionFileId": 8896050,
+   "warning": "Needs Beta APIs, and two of its menu items fail to load on 1.26.52. Hold."
   },
   {
    "group": "Quality of life",
@@ -86,7 +86,7 @@
    "thumbUrl": "https://media.forgecdn.net/avatars/thumbnails/1228/556/256/256/638805748687112545.webp",
    "summary": "Above each dropped item is shown text-hologram, which displays the name of the item and the amount! Compatible with all other addons! Now yo",
    "why": "Floating name and count over dropped items.",
-   "needsBetaApis": false,
+   "needsBetaApis": true,
    "changesPlayer": false,
    "conflictsWith": [],
    "testedWithStack": "2026-10-14: loads clean together with Origins, A Magic Way, Simple Waystone, Farmer's Delight and the rest of the Waystone_Playground set.",
@@ -537,7 +537,8 @@
    "conflictsWith": [],
    "testedWithStack": "2026-10-14: loads clean together with Origins, A Magic Way, Simple Waystone, Farmer's Delight and the rest of the Waystone_Playground set.",
    "hudNote": "Draws on the HUD, as do Origins and A Magic Way; Bedrock lets one pack's HUD win, so use at most one of these and tell me which should win.",
-   "companionFileId": 7151200
+   "companionFileId": 7151200,
+   "companionNote": "Install the free UI Queue helper with it: it and A Magic Way bundle the same UI module, and the helper lets both show their HUDs."
   },
   {
    "group": "More to explore",
@@ -552,8 +553,8 @@
    "needsBetaApis": false,
    "changesPlayer": false,
    "conflictsWith": [],
-   "testedWithStack": "2026-10-14: loads clean together with Origins, A Magic Way, Simple Waystone, Farmer's Delight and the rest of the Waystone_Playground set.",
-   "companionFileId": 7622845
+   "companionFileId": 7622845,
+   "warning": "Fails on our server version (1.26.52): its weapon items don't load, so none can be crafted. Wait for an update."
   },
   {
    "group": "More to explore",
@@ -584,7 +585,8 @@
    "changesPlayer": false,
    "conflictsWith": [],
    "testedWithStack": "2026-10-14: loads clean together with Origins, A Magic Way, Simple Waystone, Farmer's Delight and the rest of the Waystone_Playground set.",
-   "companionFileId": 6645832
+   "companionFileId": 6645832,
+   "warning": "Mostly loads on 1.26.52: one block (meteorite) and three mobs' roar fail. Playable, with holes."
   },
   {
    "group": "Quality of life",
@@ -600,6 +602,21 @@
    "changesPlayer": false,
    "conflictsWith": [],
    "testedWithStack": "2026-10-14: loads clean together with Origins, A Magic Way, Simple Waystone, Farmer's Delight and the rest of the Waystone_Playground set."
+  },
+  {
+   "group": "Quality of life",
+   "modId": 1016424,
+   "fileId": 7779366,
+   "fileUrl": "",
+   "name": "UI Queue",
+   "author": "qduoubp",
+   "thumbUrl": "",
+   "summary": "Shared UI helper used by A Magic Way, Roll and Stamina and others.",
+   "why": "Helper: lets add-ons that share the UI Queue module show their custom HUDs side by side. Needed with Roll and Stamina.",
+   "needsBetaApis": false,
+   "changesPlayer": false,
+   "conflictsWith": [],
+   "testedWithStack": "2026-10-14: loads clean with the Waystone_Playground set."
   }
  ],
  "external": [
@@ -805,5 +822,5 @@
   }
  ],
  "externalNote": "Found 2026-10-14 from the sites' own listings; none of these has been load-tested here yet. Download the file, then use Upload add-ons above, and try it on a playground first.",
- "stackNote": "Tested 2026-10-14 on a clone of Waystone_Playground: 16 picks load clean on top of the current set. Skipped: Dragon Mounts (42 errors on our version) and RPG++ (replaces the player, which breaks Origins; needs Beta APIs)."
+ "stackNote": "Tested 2026-10-14 on a clone of Waystone_Playground, alone and all together. Five picks ship as two CurseForge files (behavior + resource); the dashboard now fetches both. Skipped: Dragon Mounts, True Weapons and Multiplayer Waypoints (broken on our version) and RPG++ (replaces the player, which breaks Origins)."
 }
