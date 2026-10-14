@@ -163,6 +163,7 @@ function SuggestedAddons({ have, onAdded }: { have: Set<number>; onAdded: () => 
             Popular CurseForge add-ons that each loaded with no errors on our server ({suggested.testedOn}, tested {suggested.testedAt}).
             Add one to the library, then install it to a world from there. Try new ones on Playground first.
           </p>
+          {"stackNote" in suggested && suggested.stackNote && <p className="mc-note mb-3">{String(suggested.stackNote)}</p>}
           {err && <p className="mc-red text-xs mb-2" role="status">{err}</p>}
           {groups.map(([group, items]) => (
             <div key={group} className="mb-4">
@@ -182,6 +183,12 @@ function SuggestedAddons({ have, onAdded }: { have: Set<number>; onAdded: () => 
                         </div>
                         {it.conflictsWith.length > 0 && (
                           <p className="mc-note text-[11px] mt-1">May clash with: {it.conflictsWith.join(", ")}</p>
+                        )}
+                        {"testedWithStack" in it && it.testedWithStack && (
+                          <p className="mc-green text-[11px] mt-1" title={String(it.testedWithStack)}>✓ Tested with your Waystone set</p>
+                        )}
+                        {"hudNote" in it && it.hudNote && (
+                          <p className="mc-note text-[11px] mt-1">{String(it.hudNote)}</p>
                         )}
                       </div>
                       <button

@@ -56,7 +56,8 @@
    "why": "Shared waypoints for everyone, with quick teleport.",
    "needsBetaApis": false,
    "changesPlayer": false,
-   "conflictsWith": []
+   "conflictsWith": [],
+   "testedWithStack": "2026-10-14: loads clean together with Origins, A Magic Way, Simple Waystone, Farmer's Delight and the rest of the Waystone_Playground set."
   },
   {
    "group": "Quality of life",
@@ -70,7 +71,9 @@
    "why": "Shows the name of whatever block or mob you're looking at.",
    "needsBetaApis": false,
    "changesPlayer": false,
-   "conflictsWith": []
+   "conflictsWith": [],
+   "testedWithStack": "2026-10-14: loads clean together with Origins, A Magic Way, Simple Waystone, Farmer's Delight and the rest of the Waystone_Playground set.",
+   "hudNote": "Draws on the HUD, as do Origins and A Magic Way; Bedrock lets one pack's HUD win, so use at most one of these and tell me which should win."
   },
   {
    "group": "Quality of life",
@@ -84,7 +87,8 @@
    "why": "Floating name and count over dropped items.",
    "needsBetaApis": false,
    "changesPlayer": false,
-   "conflictsWith": []
+   "conflictsWith": [],
+   "testedWithStack": "2026-10-14: loads clean together with Origins, A Magic Way, Simple Waystone, Farmer's Delight and the rest of the Waystone_Playground set."
   },
   {
    "group": "Quality of life",
@@ -98,7 +102,9 @@
    "why": "Shows your armor and off-hand durability on screen.",
    "needsBetaApis": false,
    "changesPlayer": false,
-   "conflictsWith": []
+   "conflictsWith": [],
+   "testedWithStack": "2026-10-14: loads clean together with Origins, A Magic Way, Simple Waystone, Farmer's Delight and the rest of the Waystone_Playground set.",
+   "hudNote": "Draws on the HUD, as do Origins and A Magic Way; Bedrock lets one pack's HUD win, so use at most one of these and tell me which should win."
   },
   {
    "group": "Quality of life",
@@ -112,7 +118,8 @@
    "why": "Held torches light up the area around you.",
    "needsBetaApis": false,
    "changesPlayer": false,
-   "conflictsWith": []
+   "conflictsWith": [],
+   "testedWithStack": "2026-10-14: loads clean together with Origins, A Magic Way, Simple Waystone, Farmer's Delight and the rest of the Waystone_Playground set."
   },
   {
    "group": "Quality of life",
@@ -126,7 +133,8 @@
    "why": "Dropped items lie flat on the ground instead of spinning.",
    "needsBetaApis": false,
    "changesPlayer": false,
-   "conflictsWith": []
+   "conflictsWith": [],
+   "testedWithStack": "2026-10-14: loads clean together with Origins, A Magic Way, Simple Waystone, Farmer's Delight and the rest of the Waystone_Playground set."
   },
   {
    "group": "Quality of life",
@@ -300,7 +308,8 @@
    "why": "New enchantments for tools and armor.",
    "needsBetaApis": false,
    "changesPlayer": false,
-   "conflictsWith": []
+   "conflictsWith": [],
+   "testedWithStack": "2026-10-14: loads clean together with Origins, A Magic Way, Simple Waystone, Farmer's Delight and the rest of the Waystone_Playground set."
   },
   {
    "group": "More to explore",
@@ -318,7 +327,8 @@
     "Bedrock Reimagined v1.0.97",
     "Fabulous Furniture (Bedrock)",
     "System Wyverns"
-   ]
+   ],
+   "testedWithStack": "2026-10-14: loads clean together with Origins, A Magic Way, Simple Waystone, Farmer's Delight and the rest of the Waystone_Playground set."
   },
   {
    "group": "More to explore",
@@ -463,6 +473,51 @@
     "More Body Actions + Pickup & Carry!",
     "Raiyon's Java Combat"
    ]
+  },
+  {
+   "group": "Towns & people",
+   "modId": 1633544,
+   "fileId": 8987558,
+   "fileUrl": "https://edge.forgecdn.net/files/8987/558/ShopNWork_v1.1.3.mcaddon",
+   "name": "ShopNWork",
+   "author": "Snugglez",
+   "thumbUrl": "https://media.forgecdn.net/avatars/thumbnails/1989/812/256/256/639225658312410430.jpg",
+   "summary": "Build a medieval economy in Bedrock! Liberate villages from tyrants, recruit guard armies, and expand your empire with automated camps and t",
+   "why": "Villages under siege: hostile mercenary guards and a tyrant mayor to beat or pay off; recruit your own guard army.",
+   "needsBetaApis": false,
+   "changesPlayer": false,
+   "conflictsWith": [],
+   "testedWithStack": "2026-10-14: loads clean together with Origins, A Magic Way, Simple Waystone, Farmer's Delight and the rest of the Waystone_Playground set."
+  },
+  {
+   "group": "More to explore",
+   "modId": 1496478,
+   "fileId": 8405763,
+   "fileUrl": "https://edge.forgecdn.net/files/8405/763/Structures%20%2b%200.9%20BP.mcpack",
+   "name": "Structures Plus",
+   "author": "trotamundos872",
+   "thumbUrl": "https://media.forgecdn.net/avatars/thumbnails/1731/10/256/256/639101635788410875.png",
+   "summary": "Structures Plusis a Minecraft Bedrock add-on focused on adding new, immersive structures to your world while staying true to the vanilla exp",
+   "why": "Structures that blend into their biomes.",
+   "needsBetaApis": false,
+   "changesPlayer": false,
+   "conflictsWith": [],
+   "testedWithStack": "2026-10-14: loads clean together with Origins, A Magic Way, Simple Waystone, Farmer's Delight and the rest of the Waystone_Playground set."
+  },
+  {
+   "group": "Quality of life",
+   "modId": 1682907,
+   "fileId": 9169778,
+   "fileUrl": "https://edge.forgecdn.net/files/9169/778/MedievalWeapons_v1_0_5.mcaddon",
+   "name": "Medieval Weapons (Achievement Frendly)",
+   "author": "AsLynx",
+   "thumbUrl": "https://media.forgecdn.net/avatars/thumbnails/2028/597/256/256/639242072232005781.png",
+   "summary": "A dark fantasy arsenal for Minecraft Bedrock Edition. 28 unique daggers, spears, swords, and blunt weapons — each with its own combat effect",
+   "why": "28 daggers, spears, swords and blunt weapons, each with its own effect; smithing-table crafting.",
+   "needsBetaApis": false,
+   "changesPlayer": false,
+   "conflictsWith": [],
+   "testedWithStack": "2026-10-14: loads clean together with Origins, A Magic Way, Simple Waystone, Farmer's Delight and the rest of the Waystone_Playground set."
   }
  ],
  "external": [
@@ -472,7 +527,7 @@
    "site": "MCPEDL",
    "url": "https://mcpedl.com/rpg-pp/",
    "take": "Weapon types, dungeons, bosses and magic in one pack.",
-   "note": "v0.8.0 for 1.26.52 (Oct 2026). Also on CurseForge, so it can be added from Browse Add-ons."
+   "note": "Tested here: loads with Beta APIs on, but it replaces the player file, which breaks Origins. One or the other."
   },
   {
    "group": "Magic",
@@ -536,7 +591,7 @@
    "site": "CurseForge",
    "url": "https://www.curseforge.com/minecraft-bedrock/addons/dragon-mounts",
    "take": "Eight dragon types from eggs; fish to tame, saddle to ride.",
-   "note": "On CurseForge: add it from Browse Add-ons instead of uploading."
+   "note": "Tested here: 42 errors on our server version (old item/recipe format); wait for an update."
   },
   {
    "group": "Towns & people",
@@ -667,5 +722,6 @@
    "note": "Texture packs aren't in Browse Add-ons; download and upload it."
   }
  ],
- "externalNote": "Found 2026-10-14 from the sites' own listings; none of these has been load-tested here yet. Download the file, then use Upload add-ons above, and try it on a playground first."
+ "externalNote": "Found 2026-10-14 from the sites' own listings; none of these has been load-tested here yet. Download the file, then use Upload add-ons above, and try it on a playground first.",
+ "stackNote": "Tested 2026-10-14 on a clone of Waystone_Playground: 16 picks load clean on top of the current set. Skipped: Dragon Mounts (42 errors on our version) and RPG++ (replaces the player, which breaks Origins; needs Beta APIs)."
 }
