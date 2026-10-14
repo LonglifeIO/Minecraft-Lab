@@ -71,6 +71,8 @@ export interface SaveCurseforgePayload {
   modId: number;
   fileId: number;
   fileUrl: string;
+  extraFileIds?: number[];
+  extraFileUrls?: string[];
   name: string;
   description?: string;
   author?: string;

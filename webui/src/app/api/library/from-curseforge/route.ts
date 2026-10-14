@@ -1,7 +1,7 @@
 import { NextResponse, NextRequest } from "next/server";
 import { getSession } from "@/lib/session";
 import { saveCurseforgeToLibrary } from "@/lib/library";
-import { getDownloadUrl, isAllowedDownloadUrl } from "@/lib/curseforge";
+import { findCompanionFiles, getDownloadUrl, isAllowedDownloadUrl } from "@/lib/curseforge";
 
 export async function POST(req: NextRequest) {
   const session = await getSession();
@@ -19,8 +19,22 @@ export async function POST(req: NextRequest) {
     const url = isAllowedDownloadUrl(fileUrl) ? fileUrl : await getDownloadUrl(modId, fileId);
     if (!url) return NextResponse.json({ error: "no download URL available" }, { status: 422 });
 
+    // The other half of a two-file add-on: whatever the caller named, plus what the file list implies.
+    const extraIds = new Set<number>((Array.isArray(body.extraFileIds) ? body.extraFileIds : []).map(Number).filter((n: number) => Number.isFinite(n) && n > 0));
+    try {
+      for (const f of await findCompanionFiles(Number(modId), Number(fileId))) extraIds.add(f.id);
+    } catch { /* companion detection is best effort */ }
+    const extraFileIds = [...extraIds].filter((id) => id !== Number(fileId));
+    const extraFileUrls: string[] = [];
+    for (const id of extraFileIds) {
+      try {
+        const u = await getDownloadUrl(Number(modId), id);
+        if (isAllowedDownloadUrl(u)) extraFileUrls.push(u);
+      } catch { /* skip a half we can't fetch; the host still gets the main file */ }
+    }
+
     const { status, body: result } = await saveCurseforgeToLibrary({
-      modId, fileId, fileUrl: url, name, description, author, thumbUrl,
+      modId, fileId, fileUrl: url, extraFileIds, extraFileUrls, name, description, author, thumbUrl,
     });
     return NextResponse.json(result, { status });
   } catch {

@@ -2195,10 +2195,36 @@ def download_to_library_from_curseforge(payload):
     os.makedirs(target_dir, exist_ok=True)
     archive_path = os.path.join(target_dir, "archive.mcaddon")
 
-    req = urllib.request.Request(file_url, headers={"User-Agent": "minecraftlab-host"})
-    try:
-        with urllib.request.urlopen(req, timeout=180) as resp, open(archive_path, "wb") as f:
+    # Some CurseForge add-ons publish their behavior and resource halves as separate files; the
+    # dashboard passes the companions as extraFileUrls and they all go into one archive.
+    extra_urls = [str(u).strip() for u in (payload.get("extraFileUrls") or []) if str(u).strip()]
+    for u in [file_url] + extra_urls:
+        host = urllib.parse.urlparse(u).hostname or ""
+        if not (host == "edge.forgecdn.net" or host.endswith(".forgecdn.net")):
+            shutil.rmtree(target_dir, ignore_errors=True)
+            raise ValueError("download URL must be on CurseForge's CDN")
+
+    def fetch(url, dest):
+        req = urllib.request.Request(url, headers={"User-Agent": "minecraftlab-host"})
+        with urllib.request.urlopen(req, timeout=180) as resp, open(dest, "wb") as f:
             shutil.copyfileobj(resp, f)
+
+    try:
+        if not extra_urls:
+            fetch(file_url, archive_path)
+        else:
+            parts = []
+            for i, u in enumerate([file_url] + extra_urls):
+                part = os.path.join(target_dir, f"part{i}.mcpack")
+                fetch(u, part)
+                parts.append(part)
+            with zipfile.ZipFile(archive_path, "w", zipfile.ZIP_DEFLATED) as z:
+                for i, part in enumerate(parts):
+                    z.write(part, f"{library_id}-part{i}.mcpack")
+            for part in parts:
+                os.remove(part)
+    except ValueError:
+        raise
     except Exception as e:
         shutil.rmtree(target_dir, ignore_errors=True)
         raise ValueError(f"download failed: {e}")
@@ -2209,6 +2235,8 @@ def download_to_library_from_curseforge(payload):
         "modId": payload.get("modId"),
         "fileId": payload.get("fileId"),
         "fileUrl": file_url,
+        "extraFileIds": [int(x) for x in (payload.get("extraFileIds") or []) if str(x).isdigit()],
+        "extraFileUrls": extra_urls,
     }
     try:
         meta = _build_meta_from_archive(library_id, archive_path, name, enriched, "downloaded")

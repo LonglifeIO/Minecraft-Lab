@@ -377,6 +377,28 @@ export async function getAddonFiles(
   };
 }
 
+// Some creators publish the behavior pack and the resource pack of one add-on as two separate files
+// uploaded together (names like "[BP] ..." / "[RP] ...", "... Behavior v1.9" / "... Resource v1.9").
+// Given the file the user picked, find the other half released at the same time, if any.
+const BP_RE = /(^|[^a-z])(bp|behaviou?rs?)([^a-z]|$)/i;
+const RP_RE = /(^|[^a-z])(rp|resources?|textures?)([^a-z]|$)/i;
+export async function findCompanionFiles(modId: number, fileId: number): Promise<AddonFile[]> {
+  const { files } = await getAddonFiles(modId);
+  const picked = files.find((f) => f.id === fileId);
+  if (!picked) return [];
+  const label = `${picked.displayName} ${picked.fileName}`;
+  const pickedIsBp = BP_RE.test(label) && !RP_RE.test(label);
+  const pickedIsRp = RP_RE.test(label) && !BP_RE.test(label);
+  if (!pickedIsBp && !pickedIsRp) return [];
+  const pickedDay = picked.fileDate.slice(0, 10);
+  const wantRe = pickedIsBp ? RP_RE : BP_RE;
+  const avoidRe = pickedIsBp ? BP_RE : RP_RE;
+  return files
+    .filter((f) => f.id !== fileId && f.fileDate.slice(0, 10) === pickedDay)
+    .filter((f) => wantRe.test(`${f.displayName} ${f.fileName}`) && !avoidRe.test(`${f.displayName} ${f.fileName}`))
+    .slice(0, 1);
+}
+
 export async function getDownloadUrl(modId: number, fileId: number): Promise<string> {
   const response = await curseforgeRequest<string>(
     `/v1/mods/${modId}/files/${fileId}/download-url`,

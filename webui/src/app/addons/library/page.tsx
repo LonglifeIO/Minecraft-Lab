@@ -140,7 +140,7 @@ function SuggestedAddons({ have, onAdded }: { have: Set<number>; onAdded: () => 
       const res = await fetch("/api/library/from-curseforge", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ modId: it.modId, fileId: it.fileId, fileUrl: it.fileUrl, name: it.name, description: it.summary, author: it.author, thumbUrl: it.thumbUrl }),
+        body: JSON.stringify({ modId: it.modId, fileId: it.fileId, fileUrl: it.fileUrl, extraFileIds: "companionFileId" in it && it.companionFileId ? [it.companionFileId] : [], name: it.name, description: it.summary, author: it.author, thumbUrl: it.thumbUrl }),
       });
       const body = await res.json().catch(() => ({}));
       if (res.ok) onAdded(); else setErr(`${it.name}: ${body.error ?? "couldn't add it"}`);

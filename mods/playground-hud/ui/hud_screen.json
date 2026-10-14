@@ -1,0 +1,774 @@
+{
+  "namespace": "hud",
+  "tints": {
+    "type": "panel",
+    "offset": [
+      0,
+      0
+    ],
+    "anchor_from": "center",
+    "anchor_to": "center",
+    "$actionbar_text|default": " ",
+    "$tint_name": "$actionbar_text",
+    "controls": [
+      {
+        "phantom_tint": {
+          "type": "image",
+          "size": [
+            "200%",
+            "100%"
+          ],
+          "uv_size": [
+            512,
+            256
+          ],
+          "texture": "textures/origins/phantom_tint",
+          "alpha": 0.66,
+          "layer": 99,
+          "ignored": "(not ($tint_name = 'origins:show_phantom_tint'))"
+        }
+      },
+      {
+        "phantom_tint_red": {
+          "type": "image",
+          "size": [
+            "200%",
+            "100%"
+          ],
+          "uv_size": [
+            512,
+            256
+          ],
+          "texture": "textures/origins/phantom_tint_red",
+          "alpha": 0.66,
+          "layer": 99,
+          "ignored": "(not ($tint_name = 'origins:show_phantom_tint_red'))"
+        }
+      },
+      {
+        "black_25": {
+          "type": "image",
+          "size": [
+            "1000%",
+            "1000%"
+          ],
+          "uv_size": [
+            1,
+            1
+          ],
+          "texture": "textures/origins/black_tint",
+          "alpha": 0.25,
+          "layer": 99,
+          "ignored": "(not ($tint_name = 'origins:show_black_tint_25'))"
+        }
+      },
+      {
+        "black_50": {
+          "type": "image",
+          "size": [
+            "1000%",
+            "1000%"
+          ],
+          "uv_size": [
+            1,
+            1
+          ],
+          "texture": "textures/origins/black_tint",
+          "alpha": 0.5,
+          "layer": 99,
+          "ignored": "(not ($tint_name = 'origins:show_black_tint_50'))"
+        }
+      },
+      {
+        "black_75": {
+          "type": "image",
+          "size": [
+            "1000%",
+            "1000%"
+          ],
+          "uv_size": [
+            1,
+            1
+          ],
+          "texture": "textures/origins/black_tint",
+          "alpha": 0.75,
+          "layer": 99,
+          "ignored": "(not ($tint_name = 'origins:show_black_tint_75'))"
+        }
+      },
+      {
+        "black_100": {
+          "type": "image",
+          "size": [
+            "1000%",
+            "1000%"
+          ],
+          "uv_size": [
+            1,
+            1
+          ],
+          "texture": "textures/origins/black_tint",
+          "alpha": 1,
+          "layer": 99,
+          "ignored": "(not ($tint_name = 'origins:show_black_tint_100'))"
+        }
+      },
+      {
+        "blue_25": {
+          "type": "image",
+          "size": [
+            "1000%",
+            "1000%"
+          ],
+          "uv_size": [
+            1,
+            1
+          ],
+          "texture": "textures/origins/blue_tint",
+          "alpha": 0.25,
+          "layer": 99,
+          "ignored": "(not ($tint_name = 'origins:show_blue_tint_25'))"
+        }
+      },
+      {
+        "blue_50": {
+          "type": "image",
+          "size": [
+            "1000%",
+            "1000%"
+          ],
+          "uv_size": [
+            1,
+            1
+          ],
+          "texture": "textures/origins/blue_tint",
+          "alpha": 0.5,
+          "layer": 99,
+          "ignored": "(not ($tint_name = 'origins:show_blue_tint_50'))"
+        }
+      },
+      {
+        "blue_75": {
+          "type": "image",
+          "size": [
+            "1000%",
+            "1000%"
+          ],
+          "uv_size": [
+            1,
+            1
+          ],
+          "texture": "textures/origins/blue_tint",
+          "alpha": 0.75,
+          "layer": 99,
+          "ignored": "(not ($tint_name = 'origins:show_blue_tint_75'))"
+        }
+      },
+      {
+        "blue_100": {
+          "type": "image",
+          "size": [
+            "1000%",
+            "1000%"
+          ],
+          "uv_size": [
+            1,
+            1
+          ],
+          "texture": "textures/origins/blue_tint",
+          "alpha": 1,
+          "layer": 99,
+          "ignored": "(not ($tint_name = 'origins:show_blue_tint_100'))"
+        }
+      },
+      {
+        "green_25": {
+          "type": "image",
+          "size": [
+            "1000%",
+            "1000%"
+          ],
+          "uv_size": [
+            1,
+            1
+          ],
+          "texture": "textures/origins/green_tint",
+          "alpha": 0.25,
+          "layer": 99,
+          "ignored": "(not ($tint_name = 'origins:show_green_tint_25'))"
+        }
+      },
+      {
+        "green_50": {
+          "type": "image",
+          "size": [
+            "1000%",
+            "1000%"
+          ],
+          "uv_size": [
+            1,
+            1
+          ],
+          "texture": "textures/origins/green_tint",
+          "alpha": 0.5,
+          "layer": 99,
+          "ignored": "(not ($tint_name = 'origins:show_green_tint_50'))"
+        }
+      },
+      {
+        "green_75": {
+          "type": "image",
+          "size": [
+            "1000%",
+            "1000%"
+          ],
+          "uv_size": [
+            1,
+            1
+          ],
+          "texture": "textures/origins/green_tint",
+          "alpha": 0.75,
+          "layer": 99,
+          "ignored": "(not ($tint_name = 'origins:show_green_tint_75'))"
+        }
+      },
+      {
+        "green_100": {
+          "type": "image",
+          "size": [
+            "1000%",
+            "1000%"
+          ],
+          "uv_size": [
+            1,
+            1
+          ],
+          "texture": "textures/origins/green_tint",
+          "alpha": 1,
+          "layer": 99,
+          "ignored": "(not ($tint_name = 'origins:show_green_tint_100'))"
+        }
+      },
+      {
+        "purple_25": {
+          "type": "image",
+          "size": [
+            "1000%",
+            "1000%"
+          ],
+          "uv_size": [
+            1,
+            1
+          ],
+          "texture": "textures/origins/purple_tint",
+          "alpha": 0.25,
+          "layer": 99,
+          "ignored": "(not ($tint_name = 'origins:show_purple_tint_25'))"
+        }
+      },
+      {
+        "purple_50": {
+          "type": "image",
+          "size": [
+            "1000%",
+            "1000%"
+          ],
+          "uv_size": [
+            1,
+            1
+          ],
+          "texture": "textures/origins/purple_tint",
+          "alpha": 0.5,
+          "layer": 99,
+          "ignored": "(not ($tint_name = 'origins:show_purple_tint_50'))"
+        }
+      },
+      {
+        "purple_75": {
+          "type": "image",
+          "size": [
+            "1000%",
+            "1000%"
+          ],
+          "uv_size": [
+            1,
+            1
+          ],
+          "texture": "textures/origins/purple_tint",
+          "alpha": 0.75,
+          "layer": 99,
+          "ignored": "(not ($tint_name = 'origins:show_purple_tint_75'))"
+        }
+      },
+      {
+        "purple_100": {
+          "type": "image",
+          "size": [
+            "1000%",
+            "1000%"
+          ],
+          "uv_size": [
+            1,
+            1
+          ],
+          "texture": "textures/origins/purple_tint",
+          "alpha": 1,
+          "layer": 99,
+          "ignored": "(not ($tint_name = 'origins:show_purple_tint_100'))"
+        }
+      },
+      {
+        "red_25": {
+          "type": "image",
+          "size": [
+            "1000%",
+            "1000%"
+          ],
+          "uv_size": [
+            1,
+            1
+          ],
+          "texture": "textures/origins/red_tint",
+          "alpha": 0.25,
+          "layer": 99,
+          "ignored": "(not ($tint_name = 'origins:show_red_tint_25'))"
+        }
+      },
+      {
+        "red_50": {
+          "type": "image",
+          "size": [
+            "1000%",
+            "1000%"
+          ],
+          "uv_size": [
+            1,
+            1
+          ],
+          "texture": "textures/origins/red_tint",
+          "alpha": 0.5,
+          "layer": 99,
+          "ignored": "(not ($tint_name = 'origins:show_red_tint_50'))"
+        }
+      },
+      {
+        "red_75": {
+          "type": "image",
+          "size": [
+            "1000%",
+            "1000%"
+          ],
+          "uv_size": [
+            1,
+            1
+          ],
+          "texture": "textures/origins/red_tint",
+          "alpha": 0.75,
+          "layer": 99,
+          "ignored": "(not ($tint_name = 'origins:show_red_tint_75'))"
+        }
+      },
+      {
+        "red_100": {
+          "type": "image",
+          "size": [
+            "1000%",
+            "1000%"
+          ],
+          "uv_size": [
+            1,
+            1
+          ],
+          "texture": "textures/origins/red_tint",
+          "alpha": 1,
+          "layer": 99,
+          "ignored": "(not ($tint_name = 'origins:show_red_tint_100'))"
+        }
+      },
+      {
+        "white_25": {
+          "type": "image",
+          "size": [
+            "1000%",
+            "1000%"
+          ],
+          "uv_size": [
+            1,
+            1
+          ],
+          "texture": "textures/origins/white_tint",
+          "alpha": 0.25,
+          "layer": 99,
+          "ignored": "(not ($tint_name = 'origins:show_white_tint_25'))"
+        }
+      },
+      {
+        "white_50": {
+          "type": "image",
+          "size": [
+            "1000%",
+            "1000%"
+          ],
+          "uv_size": [
+            1,
+            1
+          ],
+          "texture": "textures/origins/white_tint",
+          "alpha": 0.5,
+          "layer": 99,
+          "ignored": "(not ($tint_name = 'origins:show_white_tint_50'))"
+        }
+      },
+      {
+        "white_75": {
+          "type": "image",
+          "size": [
+            "1000%",
+            "1000%"
+          ],
+          "uv_size": [
+            1,
+            1
+          ],
+          "texture": "textures/origins/white_tint",
+          "alpha": 0.75,
+          "layer": 99,
+          "ignored": "(not ($tint_name = 'origins:show_white_tint_75'))"
+        }
+      },
+      {
+        "white_100": {
+          "type": "image",
+          "size": [
+            "1000%",
+            "1000%"
+          ],
+          "uv_size": [
+            1,
+            1
+          ],
+          "texture": "textures/origins/white_tint",
+          "alpha": 1,
+          "layer": 99,
+          "ignored": "(not ($tint_name = 'origins:show_white_tint_100'))"
+        }
+      }
+    ]
+  },
+  "hud_actionbar_text": {
+    "ignored": false,
+    "type": "image",
+    "size": [
+      "0px",
+      "0px"
+    ],
+    "controls": [
+      {
+        "actionbar_message": {
+          "type": "label"
+        }
+      }
+    ]
+  },
+  "centered_gui_elements_at_bottom_middle": {
+    "modifications": [
+      {
+        "array_name": "controls",
+        "operation": "insert_front",
+        "value": [
+          {
+            "resource_bar_display": {
+              "type": "panel",
+              "offset": [
+                50,
+                -32
+              ],
+              "anchor_from": "bottom_left",
+              "anchor_to": "bottom_left",
+              "factory": {
+                "name": "hud_actionbar_text_factory",
+                "control_ids": {
+                  "hud_actionbar_text": "resource_bar_display@resource_bars.resource_bars"
+                }
+              }
+            }
+          }
+        ]
+      },
+      {
+        "array_name": "controls",
+        "operation": "insert_front",
+        "value": [
+          {
+            "roll_panel_creative@rns.roll_panel": {
+              "anchor_from": "bottom_middle",
+              "anchor_to": "bottom_middle",
+              "offset": [
+                -81,
+                -34
+              ],
+              "bindings": [
+                {
+                  "binding_name": "(not(#show_survival_ui))",
+                  "binding_name_override": "#visible"
+                }
+              ]
+            }
+          },
+          {
+            "roll_panel_survival@rns.roll_panel": {
+              "anchor_from": "bottom_middle",
+              "anchor_to": "bottom_middle",
+              "offset": [
+                -102,
+                -34
+              ],
+              "bindings": [
+                {
+                  "binding_name": "#show_survival_ui",
+                  "binding_name_override": "#visible"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "centered_gui_elements_at_bottom_middle_touch": {
+    "modifications": [
+      {
+        "array_name": "controls",
+        "operation": "insert_front",
+        "value": [
+          {
+            "resource_bar_display": {
+              "type": "panel",
+              "offset": [
+                60,
+                -32
+              ],
+              "anchor_from": "bottom_left",
+              "anchor_to": "bottom_left",
+              "factory": {
+                "name": "hud_actionbar_text_factory",
+                "control_ids": {
+                  "hud_actionbar_text": "resource_bar_display@resource_bars.resource_bars"
+                }
+              }
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "not_centered_gui_elements": {
+    "modifications": [
+      {
+        "array_name": "controls",
+        "operation": "insert_front",
+        "value": [
+          {
+            "resource_bar_display": {
+              "type": "panel",
+              "offset": [
+                60,
+                75
+              ],
+              "anchor_from": "top_right",
+              "anchor_to": "top_right",
+              "factory": {
+                "name": "hud_actionbar_text_factory",
+                "control_ids": {
+                  "hud_actionbar_text": "resource_bar_display@resource_bars.resource_bars"
+                }
+              }
+            }
+          }
+        ]
+      },
+      {
+        "array_name": "controls",
+        "operation": "insert_front",
+        "value": [
+          {
+            "roll_panel_creative@rns.roll_panel": {
+              "anchor_from": "bottom_middle",
+              "anchor_to": "bottom_middle",
+              "offset": [
+                -81,
+                -42
+              ]
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "root_panel": {
+    "modifications": [
+      {
+        "array_name": "controls",
+        "operation": "insert_front",
+        "value": [
+          {
+            "tints": {
+              "type": "panel",
+              "factory": {
+                "name": "hud_actionbar_text_factory",
+                "control_ids": {
+                  "hud_actionbar_text": "tints@hud.tints"
+                }
+              }
+            }
+          }
+        ]
+      },
+      {
+        "array_name": "controls",
+        "operation": "insert_front",
+        "value": [
+          {
+            "magic_screen_panel@magic_hud.root_panel": {}
+          }
+        ]
+      },
+      {
+        "array_name": "controls",
+        "operation": "insert_front",
+        "value": [
+          {
+            "root_panel@rns.root_panel": {}
+          }
+        ]
+      },
+      {
+        "array_name": "controls",
+        "operation": "insert_front",
+        "value": [
+          {
+            "waila@common.empty_panel": {
+              "$anchor": "center",
+              "anchor_from": "$anchor",
+              "anchor_to": "$anchor",
+              "size": [
+                "100%",
+                "100%"
+              ],
+              "offset": [
+                0,
+                0
+              ],
+              "factory": {
+                "name": "hud_title_text_factory",
+                "control_ids": {
+                  "hud_title_text": "disp@r4isen1920_waila_main.centerer"
+                }
+              }
+            }
+          }
+        ]
+      },
+      {
+        "array_name": "controls",
+        "operation": "insert_front",
+        "value": [
+          {
+            "dav_title_data_binding@hud_common_ds-dav.title_text_data": {}
+          },
+          {
+            "dav_content@hud_ds-dav.panel": {}
+          }
+        ]
+      }
+    ]
+  },
+  "hotbar_start_cap": {
+    "modifications": [
+      {
+        "array_name": "controls",
+        "operation": "insert_front",
+        "value": [
+          {
+            "stamina_panel_default@rns.custom_render": {
+              "$uv": [
+                7,
+                0
+              ],
+              "$size": [
+                9,
+                22
+              ],
+              "offset": [
+                -5,
+                0
+              ],
+              "$container": "fatigue_climb_data_control",
+              "$background": "textures/ui/fatigue/default/fatigue_container",
+              "$path": "textures/ui/fatigue/default/fatigue_",
+              "$target": "#fatigue",
+              "bindings": [
+                {
+                  "binding_type": "view",
+                  "source_control_name": "fatigue_climb_data_control",
+                  "source_property_name": "(#show_survival_ui and (#fatigue_style = 1))",
+                  "target_property_name": "#visible"
+                }
+              ]
+            }
+          },
+          {
+            "stamina_panel_emoticon@rns.custom_render": {
+              "$size": [
+                10,
+                11
+              ],
+              "offset": [
+                -10,
+                0
+              ],
+              "$container": "fatigue_climb_data_control",
+              "$background": "textures/ui/fatigue/emoticon/empty",
+              "$path": "textures/ui/fatigue/emoticon/icon_",
+              "$target": "#fatigue_1",
+              "bindings": [
+                {
+                  "binding_type": "view",
+                  "source_control_name": "fatigue_climb_data_control",
+                  "source_property_name": "(#show_survival_ui and (#fatigue_style = 2))",
+                  "target_property_name": "#visible"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "hud_title_text": {
+    "modifications": [
+      {
+        "array_name": "bindings",
+        "operation": "insert_front",
+        "value": [
+          {
+            "binding_type": "global",
+            "binding_name": "#hud_title_text_string",
+            "binding_name_override": "#text"
+          }
+        ]
+      },
+      {
+        "array_name": "bindings",
+        "operation": "insert_back",
+        "value": [
+          {
+            "binding_type": "view",
+            "source_property_name": "(not ('%.6s' * #text = '_r4ui:'))",
+            "target_property_name": "#visible"
+          }
+        ]
+      }
+    ]
+  }
+}
