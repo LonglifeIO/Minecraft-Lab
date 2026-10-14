@@ -266,7 +266,9 @@ world.afterEvents.playerSpawn.subscribe(({ player, initialSpawn }) => {
   } catch {}
   if (seen) return;
 
-  const waitForOrigin = originsInstalled();
+  // Origins goes first: wait for its class pick before showing the welcome. On a brand-new world Origins
+  // may not have created its scoreboards yet when the first player spawns, so also treat any "origins:"
+  // tag on the player as proof it's installed, and only give up on it after a quiet 20 seconds.
   let waited = 0;
   const poll = system.runInterval(() => {
     if (!isValid(player)) {
@@ -274,7 +276,12 @@ world.afterEvents.playerSpawn.subscribe(({ player, initialSpawn }) => {
       return;
     }
     waited += POLL_TICKS;
-    if (!waitForOrigin || hasChosenOrigin(player) || waited >= MAX_WAIT_TICKS) {
+    let originsHere = originsInstalled();
+    try {
+      originsHere = originsHere || player.getTags().some((t) => t.startsWith("origins:"));
+    } catch {}
+    const ready = originsHere ? hasChosenOrigin(player) : waited >= 20 * 20;
+    if (ready || waited >= MAX_WAIT_TICKS) {
       system.clearRun(poll);
       system.runTimeout(() => showMain(player), SHOW_DELAY_TICKS);
     }
