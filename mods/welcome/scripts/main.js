@@ -38,7 +38,8 @@ const TIPS = [
 const SCREEN = [
   ["Hearts, hunger, hotbar, XP", "Plain Minecraft, untouched."],
   ["Green bar: stamina (Roll and Stamina)", "Sprinting, climbing and rolling spend it; it refills while you rest. Roll: jump, then press sneak in mid-air."],
-  ["Spell panel and mana (A Magic Way)", "Your chosen spell and how much mana you have. Spells come from scrolls; sneak cancels a cast."],
+  ["50/50 beside the hunger bar (A Magic Way)", "Your soul, the mana spells draw on. It fills up by itself; spells come from scrolls, and sneaking cancels a cast."],
+  ["Little figure top-left", "Plain Minecraft's paper doll; it shows while you move or change gear."],
   ["Name under the crosshair (WAILA)", "Whatever block or creature you're looking at."],
   ["Gold hearts above your health", "Bonus hearts from your origin."],
   ["Bar above the hearts (Origins)", "Your origin's power charging up. Each origin explains its own powers in the picker's View page."],
@@ -96,7 +97,7 @@ const QUIET_OTHER_FIRST_JOIN_BOXES = true;
 
 const SEEN = "welcome:seen";
 // Bump this when the box's content changes (new legend, new add-ons): everyone sees it once more.
-const WELCOME_VERSION = "3";
+const WELCOME_VERSION = "4";
 const POLL_TICKS = 20;
 const MAX_WAIT_TICKS = 20 * 60 * 10; // stop waiting for an origin pick after 10 minutes
 const SHOW_DELAY_TICKS = 60; // breathing room after the origin pick closes
