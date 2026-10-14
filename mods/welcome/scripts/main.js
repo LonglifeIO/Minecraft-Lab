@@ -73,7 +73,7 @@ const ORIGINS = [
   ["Extra", "Pufferfish", "A small fish that may get toxic if it blows up."],
   ["Extra", "Rabbit", "A fast and hard working rabbit."],
   ["Extra", "Raccoon Lord", "The lord of all the raccoons."],
-  ["Extra", "Ravager", "Big and slow, hits hard and lives for combat."],
+  ["Extra", "Ravager", "Big, hits hard and lives for combat (walks at normal speed on this server)."],
   ["Extra", "Redstone Bug", "Anyone who has dealt with redstone can tell you of its annoying bugs."],
   ["Extra", "Sheep", "A sheep with a wool growth problem."],
   ["Extra", "Slime", "A slime that has evolved into the shape of a human. Very unpleasant to touch."],
