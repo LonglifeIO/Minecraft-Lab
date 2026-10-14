@@ -211,6 +211,24 @@ async function showMain(player, attempt = 0) {
     ["Tips", async () => { await showList(player, "Tips", TIPS.map((t) => ["Tip", t])); return showMain(player); }],
   ];
   if (originsInstalled()) buttons.push([`Origins guide (${ORIGINS.length})`, () => showOriginsGuide(player)]);
+  // Operators get a one-tap admin switch (runs the same /function admin/... commands as the player).
+  let isOp = false;
+  try {
+    isOp = Number(player.commandPermissionLevel ?? 0) >= 2;
+  } catch {}
+  if (isOp) {
+    let creative = false;
+    try {
+      creative = player.getGameMode() === "Creative" || String(player.getGameMode()).toLowerCase() === "creative";
+    } catch {}
+    buttons.push([creative ? "Admin mode: ON (tap to play normally)" : "Admin mode: off (tap for creative)", () => {
+      try {
+        player.runCommand(creative ? "function admin/off" : "function admin/on");
+      } catch (e) {
+        try { player.sendMessage("§cCouldn't switch: " + e); } catch {}
+      }
+    }]);
+  }
   buttons.push(["Let's play!", () => {
     markSeen(player);
     try {
