@@ -116,7 +116,13 @@ function originName(player) {
   try {
     const tag = player.getTags().find((t) => t.startsWith("origins:selected_") && t !== "origins:selected_origin");
     if (!tag) return null;
-    return tag.slice("origins:selected_".length).replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+    // e.g. "origins:selected_base_feline_origin" -> "Feline"
+    return tag
+      .slice("origins:selected_".length)
+      .replace(/^(base|extra|weppl)_/, "")
+      .replace(/_origin$/, "")
+      .replace(/_/g, " ")
+      .replace(/\b\w/g, (c) => c.toUpperCase());
   } catch {
     return null;
   }
