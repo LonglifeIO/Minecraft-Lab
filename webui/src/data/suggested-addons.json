@@ -464,5 +464,208 @@
     "Raiyon's Java Combat"
    ]
   }
- ]
+ ],
+ "external": [
+  {
+   "group": "Magic",
+   "name": "RPG++",
+   "site": "MCPEDL",
+   "url": "https://mcpedl.com/rpg-pp/",
+   "take": "Weapon types, dungeons, bosses and magic in one pack.",
+   "note": "v0.8.0 for 1.26.52 (Oct 2026). Also on CurseForge, so it can be added from Browse Add-ons."
+  },
+  {
+   "group": "Magic",
+   "name": "Nico's Magic Spells",
+   "site": "MCPEDL",
+   "url": "https://mcpedl.com/nicos-magic-spells/",
+   "take": "Scroll-based spellcasting; find or craft scrolls and cast.",
+   "note": "Listing says 26.30 and newer."
+  },
+  {
+   "group": "Magic",
+   "name": "Yogmagica",
+   "site": "MCPEDL",
+   "url": "https://mcpedl.com/yogmagica/",
+   "take": "A unified magic system: wands, mana and spell schools.",
+   "note": "Updated Aug 2026."
+  },
+  {
+   "group": "Bosses & dungeons",
+   "name": "Dungeon Raiders",
+   "site": "MCPEDL",
+   "url": "https://mcpedl.com/dungeon-raiders/",
+   "take": "New dungeons and structures with bosses at the end.",
+   "note": "Updated Sep 2026."
+  },
+  {
+   "group": "Bosses & dungeons",
+   "name": "Nico's More Dungeon",
+   "site": "MCPEDL",
+   "url": "https://mcpedl.com/nico-s-more-dungeon/",
+   "take": "More dungeon types to find underground.",
+   "note": ""
+  },
+  {
+   "group": "Bosses & dungeons",
+   "name": "CataLysmi-Bosses",
+   "site": "MCPEDL",
+   "url": "https://mcpedl.com/catalysmi-bosses/",
+   "take": "Cataclysm-style bosses and the structures they live in.",
+   "note": "Last listed for 1.21.50 (Feb 2025): may be outdated. The official Cataclysm Bedrock add-on is announced for 2026 but not out yet."
+  },
+  {
+   "group": "Dragons",
+   "name": "Dragon Mounts 3 (preview)",
+   "site": "MCPEDL",
+   "url": "https://mcpedl.com/dragon-mounts-3/",
+   "take": "Hatch eggs, raise dragons, then ride them.",
+   "note": "Preview build."
+  },
+  {
+   "group": "Dragons",
+   "name": "How To Train Your Dragon",
+   "site": "MCPEDL",
+   "url": "https://mcpedl.com/how-to-train-your-dragon-add-on-night-fury-update/",
+   "take": "Tameable, rideable HTTYD dragons, Night Fury included.",
+   "note": ""
+  },
+  {
+   "group": "Dragons",
+   "name": "Dragon Mounts",
+   "site": "CurseForge",
+   "url": "https://www.curseforge.com/minecraft-bedrock/addons/dragon-mounts",
+   "take": "Eight dragon types from eggs; fish to tame, saddle to ride.",
+   "note": "On CurseForge: add it from Browse Add-ons instead of uploading."
+  },
+  {
+   "group": "Towns & people",
+   "name": "Dan's Guard Villagers",
+   "site": "MCPEDL",
+   "url": "https://mcpedl.com/dans-guard-villagers/",
+   "take": "Recruit guards with bows and spears to defend a village or base.",
+   "note": "Listed for 26.3 to 26.30 (Jul 2026)."
+  },
+  {
+   "group": "Towns & people",
+   "name": "Guard villagers (Empada47300)",
+   "site": "MCPEDL",
+   "url": "https://mcpedl.com/guard-villager-add-on/",
+   "take": "Train villagers into an army; guards wear armor.",
+   "note": "Updated Sep 2026."
+  },
+  {
+   "group": "Towns & people",
+   "name": "Medieval Alliance",
+   "site": "MCPEDL",
+   "url": "https://mcpedl.com/medieval-alliance/",
+   "take": "Medieval companions and knights that fight alongside you.",
+   "note": "Updated May 2026."
+  },
+  {
+   "group": "Towns & people",
+   "name": "Rex Medieval Villagers v3",
+   "site": "MCPEDL",
+   "url": "https://mcpedl.com/rex-medieval-villagers-addon/",
+   "take": "Medieval villages with mercenaries and guards.",
+   "note": "Comments report mixed compatibility; try on Playground first."
+  },
+  {
+   "group": "Towns & people",
+   "name": "MF Old Villages",
+   "site": "MCPEDL",
+   "url": "https://mcpedl.com/mf-old-villages/",
+   "take": "Old-world villages with new mobs and buildings.",
+   "note": "Some reports of floating villages."
+  },
+  {
+   "group": "Towns & people",
+   "name": "ShopNWork",
+   "site": "CurseForge",
+   "url": "https://www.curseforge.com/minecraft-bedrock/addons/shopnwork",
+   "take": "Besieged villages with mercenary guards and a tyrant mayor to beat or pay off; recruit guard armies.",
+   "note": "On CurseForge: add it from Browse Add-ons."
+  },
+  {
+   "group": "Towns & people",
+   "name": "Structures Plus",
+   "site": "CurseForge",
+   "url": "https://www.curseforge.com/minecraft-bedrock/addons/structures-plus",
+   "take": "Structures that blend into their biomes.",
+   "note": "On CurseForge: add it from Browse Add-ons."
+  },
+  {
+   "group": "Gear",
+   "name": "The Epic Knights Mod",
+   "site": "MCPEDL",
+   "url": "https://mcpedl.com/the-epic-knights-mod/",
+   "take": "Historically accurate armour, weapons and shields.",
+   "note": ""
+  },
+  {
+   "group": "Gear",
+   "name": "XR's Soulsborne Knights Armoury",
+   "site": "MCPEDL",
+   "url": "https://mcpedl.com/soulslike-armoury-collection/",
+   "take": "Souls-style armour sets.",
+   "note": "Listed for 26.1."
+  },
+  {
+   "group": "Gear",
+   "name": "Medieval Weapons",
+   "site": "CurseForge",
+   "url": "https://www.curseforge.com/minecraft-bedrock/addons/medieval-weapons",
+   "take": "28 daggers, spears, swords and blunt weapons with their own effects.",
+   "note": "Needs Beta APIs plus the Holiday Creator experiment; the second one isn't a dashboard toggle yet."
+  },
+  {
+   "group": "Visuals (vanilla-friendly)",
+   "name": "Fresh Animations Bedrock",
+   "site": "MCPEDL",
+   "url": "https://mcpedl.com/fresh-animations-bedrock/",
+   "take": "Livelier mob animations; keeps vanilla textures.",
+   "note": "Listed up to 1.21.50 (Mar 2025): may need a newer version."
+  },
+  {
+   "group": "Visuals (vanilla-friendly)",
+   "name": "Better Mob Animations v2.4.5",
+   "site": "MCPEDL",
+   "url": "https://mcpedl.com/better-mob-animations-addon/",
+   "take": "Another animation pack if Fresh Animations misbehaves.",
+   "note": ""
+  },
+  {
+   "group": "Visuals (vanilla-friendly)",
+   "name": "Medieval Fantasy Illagers [Bedrock]",
+   "site": "Planet Minecraft",
+   "url": "https://www.planetminecraft.com/texture-pack/medieval-fantasy-illagers-hmmmm-bedrock/",
+   "take": "Remodels illagers and witches in a medieval style, 16x.",
+   "note": ""
+  },
+  {
+   "group": "Visuals (vanilla-friendly)",
+   "name": "Forge Medieval Fantasy (Bedrock)",
+   "site": "Planet Minecraft",
+   "url": "https://www.planetminecraft.com/texture-pack/forge-medieval-fantasy-bedrock-edition/",
+   "take": "32x medieval look for armor, items and mobs.",
+   "note": "The free file is an early version; the finished pack is Marketplace-only."
+  },
+  {
+   "group": "Visuals (vanilla-friendly)",
+   "name": "New Wayukian (Bedrock & Java)",
+   "site": "Planet Minecraft",
+   "url": "https://www.planetminecraft.com/texture-pack/new-wayukian/",
+   "take": "16x realistic-medieval textures.",
+   "note": "Grab the Bedrock .mcpack."
+  },
+  {
+   "group": "Visuals (vanilla-friendly)",
+   "name": "Medieval Style Shader",
+   "site": "CurseForge",
+   "url": "https://www.curseforge.com/minecraft-bedrock/texture-packs/medieval-style-shader",
+   "take": "Muted tones, fog and lighting for a grimmer medieval mood.",
+   "note": "Texture packs aren't in Browse Add-ons; download and upload it."
+  }
+ ],
+ "externalNote": "Found 2026-10-14 from the sites' own listings; none of these has been load-tested here yet. Download the file, then use Upload add-ons above, and try it on a playground first."
 }

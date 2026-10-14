@@ -197,6 +197,46 @@ function SuggestedAddons({ have, onAdded }: { have: Set<number>; onAdded: () => 
               </div>
             </div>
           ))}
+          <ExternalPicks />
+        </>
+      )}
+    </div>
+  );
+}
+
+// Hand-picked add-ons on MCPEDL / Planet Minecraft / CurseForge texture packs that can't be fetched
+// automatically. Links only: download, then use the Upload button.
+function ExternalPicks() {
+  const [open, setOpen] = useState(false);
+  const groups = useMemo(() => {
+    const m = new Map<string, typeof suggested.external>();
+    for (const it of suggested.external) m.set(it.group, [...(m.get(it.group) ?? []), it]);
+    return [...m.entries()];
+  }, []);
+  return (
+    <div className="mt-2 pt-3 border-t border-white/10">
+      <button className="mc-textbtn w-full text-left flex items-center justify-between" onClick={() => setOpen(!open)} aria-expanded={open}>
+        <span className="mc-gold text-xs font-bold">Also worth a look on MCPEDL and Planet Minecraft (untested here)</span>
+        <span className="mc-note">{open ? "Hide" : `Show ${suggested.external.length}`}</span>
+      </button>
+      {open && (
+        <>
+          <p className="mc-note mt-1 mb-3">{suggested.externalNote}</p>
+          {groups.map(([group, items]) => (
+            <div key={group} className="mb-3">
+              <div className="mc-gray text-xs font-bold mb-1">{group}</div>
+              <ul className="space-y-1">
+                {items.map((it) => (
+                  <li key={it.url} className="text-[12px] leading-snug">
+                    <a href={it.url} target="_blank" rel="noopener noreferrer" className="mc-white font-bold hover:underline">{it.name}</a>
+                    <span className="mc-dark-gray"> · {it.site}</span>
+                    <span className="mc-gray"> — {it.take}</span>
+                    {it.note && <span className="mc-note"> ({it.note})</span>}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
         </>
       )}
     </div>
