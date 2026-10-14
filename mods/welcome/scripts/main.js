@@ -96,7 +96,7 @@ const QUIET_OTHER_FIRST_JOIN_BOXES = true;
 
 const SEEN = "welcome:seen";
 // Bump this when the box's content changes (new legend, new add-ons): everyone sees it once more.
-const WELCOME_VERSION = "2";
+const WELCOME_VERSION = "3";
 const POLL_TICKS = 20;
 const MAX_WAIT_TICKS = 20 * 60 * 10; // stop waiting for an origin pick after 10 minutes
 const SHOW_DELAY_TICKS = 60; // breathing room after the origin pick closes
