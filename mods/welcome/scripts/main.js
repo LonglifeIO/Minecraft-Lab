@@ -19,6 +19,9 @@ const INTRO =
 // [name, one-line description] pairs, shown under "What's in this world".
 const FEATURES = [
   ["Origins", "You picked an origin: each has its own powers and drawbacks. An Orb of Origin lets you change it."],
+  ["Roll and Stamina", "A stamina bar, dodge rolls and wall climbing."],
+  ["WAILA", "Names whatever you look at."],
+  ["A Magic Way", "100+ spells from scrolls, with a mana bar."],
   ["Farmer's Delight", "New crops, a cooking pot, a cutting board and lots of meals."],
   ["Bedrock Essentials+", "Tree capitator, vein miner and other small survival helpers."],
   ["Effortless Building", "Place lines, walls and floors in one go, like the Java mod."],
@@ -31,6 +34,16 @@ const TIPS = [
   "New structures and creatures only appear in parts of the map nobody has explored yet, so head somewhere new.",
   "Lost this box? Ask the host to bring it back from the dashboard.",
   "This world restarts now and then when add-ons change. If it's not in the LAN list afterwards, join it by address once.",
+];
+// What each thing on the screen is and which add-on it belongs to (shown under "Your screen").
+const SCREEN = [
+  ["Hearts, hunger, hotbar, XP", "Plain Minecraft, untouched."],
+  ["Green bar: stamina (Roll and Stamina)", "Sprinting, climbing and rolling spend it; it refills while you rest. Roll: jump, then press sneak in mid-air."],
+  ["Spell panel and mana (A Magic Way)", "Your chosen spell and how much mana you have. Spells come from scrolls; sneak cancels a cast."],
+  ["Name under the crosshair (WAILA)", "Whatever block or creature you're looking at."],
+  ["Armor icons with little bars (Durability Armor Viewer)", "How worn each piece is. /dav:setting moves or hides it."],
+  ["Bar above the hearts (Origins)", "Your origin's power charging up. Each origin explains its own powers in the picker's View page."],
+  ["Testing (operators)", "/function admin/on for creative, admin/off to play normally, admin/god to stay unhurt, admin/kit for basic gear."],
 ];
 // Every origin in Origins BE 1.5.5, from its own text files (names and blurbs), grouped by pack.
 const ORIGINS = [
@@ -193,6 +206,7 @@ async function showMain(player, attempt = 0) {
   if (!isValid(player)) return;
   const buttons = [
     ["What's in this world", async () => { await showList(player, "What's in this world", FEATURES); return showMain(player); }],
+    ["Your screen", async () => { await showList(player, "Your screen: what's what", SCREEN); return showMain(player); }],
     ["Tips", async () => { await showList(player, "Tips", TIPS.map((t) => ["Tip", t])); return showMain(player); }],
   ];
   if (originsInstalled()) buttons.push([`Origins guide (${ORIGINS.length})`, () => showOriginsGuide(player)]);
