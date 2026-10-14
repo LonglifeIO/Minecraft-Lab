@@ -7,6 +7,8 @@
 // tidy welcome with an Origins guide.
 //
 // The host can re-open it for a player from the dashboard console:  tag "Name" add welcome_show
+// Operators (worlds with cheats on) also get /function admin/on, admin/off, admin/god and admin/kit:
+// a quick switch between normal play as your origin and a fly-anywhere test mode. See functions/admin/.
 import { world, system } from "@minecraft/server";
 import { ActionFormData, FormCancelationReason } from "@minecraft/server-ui";
 
